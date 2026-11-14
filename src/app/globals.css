@@ -157,3 +157,69 @@ body {
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
 }
+
+/* --- Alertas --- */
+.badge-tipo {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.badge-tipo-nuevo {
+  background-color: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.badge-tipo-cambio {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.badge-tipo-cancelado {
+  background-color: #fef2f2;
+  color: var(--unlpam-burgundy);
+  border-color: #fecaca;
+}
+
+.badge-no-leida {
+  background-color: var(--unlpam-gold);
+  color: var(--unlpam-navy);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+.alert-row-unread {
+  background-color: #fffbeb;
+}
+
+.btn-unlpam-outline {
+  background-color: transparent;
+  border: 1px solid var(--unlpam-blue-btn);
+  color: var(--unlpam-blue-btn);
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.btn-unlpam-outline:hover,
+.btn-unlpam-outline:focus {
+  background-color: var(--unlpam-blue-btn);
+  color: #ffffff;
+}
+
+/* Contador en el menú lateral (.sidebar-link ya usa space-between) */
+.badge-count {
+  background-color: var(--unlpam-gold);
+  color: var(--unlpam-navy);
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 1.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  text-align: center;
+}
