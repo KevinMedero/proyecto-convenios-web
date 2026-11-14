@@ -148,17 +148,6 @@ body {
   font-size: 0.84rem;
 }
 
-/* Badges de estado */
-.badge-firmado {
-  background-color: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
-  font-weight: 600;
-  font-size: 0.72rem;
-  padding: 0.25rem 0.65rem;
-  border-radius: 999px;
-}
-
 .badge-relacion {
   background-color: #eff6ff;
   color: #1d4ed8;
