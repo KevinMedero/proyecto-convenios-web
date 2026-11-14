@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState } from 'react';
+import SearchFilters from '@/components/common/SearchFilters';
 import Link from 'next/link';
 
 export default function InicioAdmin() {
@@ -23,7 +24,19 @@ export default function InicioAdmin() {
 
     // Estado para controlar qué filas padre están expandidas mostrando sus convenios hijos/adendas
     const [expandidos, setExpandidos] = useState({});
-  
+
+    // Limpia todos los filtros
+    const handleLimpiarFiltros = () => {
+        setQ('');
+        setTipoId('');
+        setUnidadId('');
+        setEstado('');
+        setFechaDesde('');
+        setFechaHasta('');
+        setPagina(1);
+    };
+
+    
     {/* Barra de Filtros */}
       <SearchFilters
         rol="admin"
@@ -117,16 +130,7 @@ export default function InicioAdmin() {
       fetchConvenios();
     }, [apiUrl, q, tipoId, unidadId, estado, fechaDesde, fechaHasta, pagina]);
 
-    // Limpia todos los filtros
-    const handleLimpiarFiltros = () => {
-        setQ('');
-        setTipoId('');
-        setUnidadId('');
-        setEstado('');
-        setFechaDesde('');
-        setFechaHasta('');
-        setPagina(1);
-    };
+    
 
     // Alterna el desplegable de convenios relacionados (hijos)
     const toggleExpandir = (id) => {
