@@ -1,9 +1,9 @@
-// Ejecuta el componente en el navegador (necesario para hooks y localStorage)
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import StatusBadge from '@/components/common/StatusBadge';
 
 export default function FichaConvenioPage() {
     // Captura el ID de la URL (/convenios/[id]) y permite navegar atrás
@@ -19,35 +19,35 @@ export default function FichaConvenioPage() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
     useEffect(() => {
-      if (!id) return;
-  
-      const fetchConvenio = async () => {
-        setLoading(true);
-        setError('');
-        const token = localStorage.getItem('auth_token');
-  
-        try {
-          const response = await fetch(`${apiUrl}/convenios/${id}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/json',
-            },
-          });
-  
-          if (!response.ok) {
-            throw new Error('No se pudo cargar la información del convenio.');
-          }
-  
-          const data = await response.json();
-          setConvenio(data);
-        } catch (err) {
-          setError(err.message);
-        } finally {
-          setLoading(false);
-        }
-      };
-  
-      fetchConvenio();
+        if (!id) return;
+
+        const fetchConvenio = async () => {
+            setLoading(true);
+            setError('');
+            const token = localStorage.getItem('auth_token');
+
+            try {
+                const response = await fetch(`${apiUrl}/convenios/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error('No se pudo cargar la información del convenio.');
+                }
+
+                const data = await response.json();
+                setConvenio(data);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchConvenio();
     }, [apiUrl, id]);
 
     // Formateo de fechas YYYY-MM-DD -> DD/MM/YYYY
@@ -57,28 +57,6 @@ export default function FichaConvenioPage() {
         const partes = soloFecha.split('-');
         if (partes.length !== 3) return fechaStr;
         return `${partes[2]}/${partes[1]}/${partes[0]}`;
-    };
-
-    // Devuelve el badge de color correspondiente al estado del convenio
-    const obtenerBadgeEstado = (estado) => {
-        const est = (estado || '').toLowerCase();
-        const mapa = {
-            firmado: { texto: 'Firmado', bg: '#dcfce7', color: '#166534' },
-            revision: { texto: 'En revisión', bg: '#fef3c7', color: '#92400e' },
-            aprobado: { texto: 'Aprobado', bg: '#dbeafe', color: '#1e40af' },
-            borrador: { texto: 'Borrador', bg: '#f3f4f6', color: '#374151' },
-            rescindido: { texto: 'Rescindido', bg: '#fee2e2', color: '#991b1b' },
-            archivado: { texto: 'Archivado', bg: '#e5e7eb', color: '#4b5563' },
-        };
-        const info = mapa[est] || { texto: estado || 'Desconocido', bg: '#f3f4f6', color: '#374151' };
-        return (
-            <span
-                className="badge rounded-pill fw-semibold px-3 py-1"
-                style={{ backgroundColor: info.bg, color: info.color, fontSize: '0.78rem' }}
-            >
-                {info.texto}
-            </span>
-        );
     };
 
     // Clasifica el vínculo del convenio hijo según su tipo de instrumento
@@ -126,9 +104,7 @@ export default function FichaConvenioPage() {
                 throw new Error('No se pudo obtener el documento PDF desde el servidor.');
             }
 
-            // Convierte la respuesta binaria a un Blob PDF navegable
             const rawBlob = await response.blob();
-            // Forzamos tipo application/pdf para que el botón "Ver" lo abra en el visor del navegador
             const pdfBlob = new Blob([rawBlob], { type: 'application/pdf' });
             const blobUrl = URL.createObjectURL(pdfBlob);
 
@@ -165,7 +141,7 @@ export default function FichaConvenioPage() {
                     </div>
                     <h1 className="page-title mb-2">{convenio.titulo}</h1>
                     <div className="d-flex align-items-center gap-2">
-                        {obtenerBadgeEstado(convenio.estado)}
+                        <StatusBadge estado={convenio.estado} />
                     </div>
                 </div>
 
@@ -180,21 +156,22 @@ export default function FichaConvenioPage() {
                         Volver
                     </button>
 
-                    {docPrincipal && (
-                        <button
-                            type="button"
-                            onClick={() => handleDescargarDocumento(docPrincipal, false)}
-                            className="btn btn-sm bg-white fw-semibold px-3 py-2"
-                            style={{
-                                color: 'var(--unlpam-blue-btn)',
-                                border: '1.5px solid var(--unlpam-blue-btn)',
-                                borderRadius: '8px',
-                                fontSize: '0.82rem',
-                            }}
-                        >
-                            Descargar PDF
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={() => docPrincipal && handleDescargarDocumento(docPrincipal, false)}
+                        disabled={!docPrincipal}
+                        title={!docPrincipal ? 'Este convenio aún no tiene un PDF adjunto' : 'Descargar PDF principal'}
+                        className="btn btn-sm bg-white fw-semibold px-3 py-2"
+                        style={{
+                            color: docPrincipal ? 'var(--unlpam-blue-btn)' : '#9ca3af',
+                            border: `1.5px solid ${docPrincipal ? 'var(--unlpam-blue-btn)' : '#d1d5db'}`,
+                            borderRadius: '8px',
+                            fontSize: '0.82rem',
+                            cursor: docPrincipal ? 'pointer' : 'not-allowed',
+                        }}
+                    >
+                        Descargar PDF
+                    </button>
                 </div>
             </div>
 
@@ -242,7 +219,7 @@ export default function FichaConvenioPage() {
                             </div>
                         </div>
 
-                        {/* Si tiene detalle_pasantia cargado en la API, lo mostramos integrado */}
+                        {/* Detalle de pasantía */}
                         {convenio.detalle_pasantia && (
                             <div className="mt-3 pt-3 border-top">
                                 <div className="fw-bold text-dark mb-2" style={{ fontSize: '0.82rem' }}>
@@ -311,8 +288,9 @@ export default function FichaConvenioPage() {
                                 {convenio.documentos.map((doc, idx) => (
                                     <div
                                         key={doc.id || idx}
-                                        className={`d-flex justify-content-between align-items-center py-2 ${idx < convenio.documentos.length - 1 ? 'border-bottom' : ''
-                                            }`}
+                                        className={`d-flex justify-content-between align-items-center py-2 ${
+                                            idx < convenio.documentos.length - 1 ? 'border-bottom' : ''
+                                        }`}
                                     >
                                         <div>
                                             <div className="fw-semibold text-dark" style={{ fontSize: '0.85rem' }}>
@@ -358,7 +336,7 @@ export default function FichaConvenioPage() {
                             <div className="text-muted small">No posee convenios antecedentes ni derivados.</div>
                         ) : (
                             <div className="d-flex flex-column gap-2">
-                                {/* Si este convenio depende de un convenio padre (Antecedente) */}
+                                {/* Convenio padre */}
                                 {convenio.padre && (
                                     <div className="p-2 rounded border bg-light">
                                         <div className="d-flex align-items-center gap-2 mb-1">
@@ -380,7 +358,7 @@ export default function FichaConvenioPage() {
                                     </div>
                                 )}
 
-                                {/* Si este convenio tiene hijos (Específicos, Adendas, Renovaciones) */}
+                                {/* Convenios hijos */}
                                 {convenio.adendas?.map((hijo) => (
                                     <div key={hijo.id} className="p-2 rounded border bg-light">
                                         <div className="d-flex align-items-center gap-2 mb-1">

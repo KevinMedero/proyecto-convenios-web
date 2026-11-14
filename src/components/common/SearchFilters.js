@@ -21,8 +21,8 @@ export default function SearchFilters({
 }) {
   const rolNorm = rol.toLowerCase();
   const esConsulta = rolNorm === 'consulta';
-  const esRevisor = rolNorm === 'revisor';
-  const esGestor = rolNorm === 'gestor';
+  const esRevisor = rolNorm === 'revision';
+  const esGestor = rolNorm === 'gestion';
 
   // Consulta solo ve 'firmado' y Revisor solo ve 'revision'
   const estadoBloqueado = esConsulta || esRevisor;

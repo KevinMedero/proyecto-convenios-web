@@ -6,25 +6,44 @@ import { usePathname } from 'next/navigation';
 export default function Sidebar({ user, alertasCount = 0, onLogout }) {
   const pathname = usePathname();
 
-  // Normalizamos el rol en minúscula para comparar sin errores
-  const rolActual = (user?.rol || 'consulta').toLowerCase();
-  const puedeCrearConvenio = rolActual === 'gestor' || rolActual === 'administrador' || rolActual === 'admin';
+  // Normalizamos el rol en minúscula y sin tildes para comparar sin errores
+  const rolActual = (user?.rol || 'consulta')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
-  // Definimos qué enlaces ve cada rol en el menú lateral:
-  // - Consulta y Revisor: Inicio, Estadísticas, Alertas y Cerrar sesión
-  // - Gestor y Administrador: Inicio, Nuevo convenio, Estadísticas, Alertas y Cerrar sesión
+  const puedeVerConvenios = ['revision', 'gestion', 'administracion'].includes(rolActual);
+  const puedeCrearConvenio = ['gestion', 'administracion'].includes(rolActual);
+
+  // Orden del menú lateral: Inicio -> Convenios -> Nuevo convenio -> Estadísticas -> Alertas
+  // Consulta: Inicio, Estadísticas, Alertas
+  // Revisor: Inicio, Convenios, Estadísticas, Alertas
+  // Gestor y Administrador: Inicio, Convenios, Nuevo convenio, Estadísticas, Alertas  
   const menuItems = [
     { label: 'Inicio', href: '/inicio', visible: true },
+    { label: 'Convenios', href: '/convenios', visible: puedeVerConvenios },
     { label: 'Nuevo convenio', href: '/convenios/nuevo', visible: puedeCrearConvenio },
     { label: 'Estadísticas', href: '/estadisticas', visible: true },
     { label: 'Alertas', href: '/alertas', badge: alertasCount, visible: true },
   ];
 
-  // Marca activo el enlace correspondiente (incluye subrutas como /convenios/[id] dentro de Inicio)
+  // Marca activo el enlace correspondiente evitando colisiones entre /inicio, /convenios y /convenios/nuevo
   const esActivo = (href) => {
     if (href === '/inicio') {
-      return pathname === '/inicio' || (pathname.startsWith('/convenios/') && pathname !== '/convenios/nuevo');
+      if (puedeVerConvenios) {
+        return pathname === '/inicio';
+      }
+      // Para Consulta (que no ve el ítem "Convenios"), la ficha /convenios/[id] sigue resaltando Inicio
+      return pathname === '/inicio' || pathname.startsWith('/convenios/');
     }
+
+    if (href === '/convenios') {
+      return (
+        pathname === '/convenios' ||
+        (pathname.startsWith('/convenios/') && pathname !== '/convenios/nuevo')
+      );
+    }
+
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
