@@ -34,18 +34,17 @@ export default function InicioPage() {
 
   // Según el rol detectado, renderizamos el componente de inicio que le corresponde al usuario:
   switch (rol) {
-    case 'gestor':
+    case 'gestion':
       return <InicioGestor />;
 
-    case 'revisor':
+    case 'revision':
       return <InicioRevisor />;
 
     //case 'decano':
       //return <InicioDecano />;
 
     // Aceptamos tanto 'administrador' como 'admin' por si la API devuelve cualquiera de los dos.
-    case 'administrador':
-    case 'admin':
+    case 'administracion':
       return <InicioAdmin />;
 
     // Si es 'consulta' (o cualquier otro valor no contemplado), mostramos la grilla de solo lectura.
