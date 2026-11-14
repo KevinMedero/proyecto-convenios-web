@@ -18,7 +18,6 @@ export default function FichaConvenioPage() {
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
-    /* ================= INICIO CÓDIGO REAL DE LA API (DESCOMENTAR AL CONECTAR LARAVEL) =================
     useEffect(() => {
       if (!id) return;
   
@@ -50,130 +49,6 @@ export default function FichaConvenioPage() {
   
       fetchConvenio();
     }, [apiUrl, id]);
-    ================= FIN CÓDIGO REAL DE LA API ================= */
-
-    // ================= DATOS ESTÁTICOS DE PRUEBA (BORRAR AL CONECTAR LARAVEL) =================
-    useEffect(() => {
-        const mocksPorId = {
-            '1': {
-                id: 1,
-                codigo: 'CONV-2025-001',
-                titulo: 'Marco de colaboración · Universidad Ejemplo',
-                estado: 'firmado',
-                fecha_creacion: '2025-06-30',
-                fecha_vencimiento: '2028-06-30',
-                firma_gestor: true,
-                firma_decano: true,
-                tipo_instrumento: { id: 1, nombre: 'Marco de colaboración' },
-                representantes: [
-                    { id: 1, nombre: 'UNLPam · Facultad de Ingeniería', cargo: 'Decano/a (dato ficticio)' },
-                    { id: 2, nombre: 'Universidad Ejemplo', cargo: 'Rector/a (dato ficticio)' },
-                ],
-                documentos: [
-                    { id: 10, nombre_archivo: 'Convenio_marco_2025.pdf', tipo: 'Principal', peso: '1,4 MB', hash: 'a3f9...c21b', url: '#' },
-                ],
-                padre: null,
-                adendas: [
-                    {
-                        id: 2,
-                        codigo: 'CONV-2025-007',
-                        titulo: 'Práctica profesional supervisada',
-                        fecha_vencimiento: '2026-12-31',
-                        tipo_instrumento: { nombre: 'Específico de pasantía' },
-                    },
-                    {
-                        id: 4,
-                        codigo: 'CONV-2026-010',
-                        titulo: 'Renovación del marco de colaboración',
-                        fecha_vencimiento: '2031-06-30',
-                        tipo_instrumento: { nombre: 'Renovación' },
-                    },
-                ],
-                historial_estados: [
-                    { id: 1, estado_nuevo: 'borrador', fundamento: 'Borrador creado', fecha_cambio: '2025-06-01', usuario: 'Ana Ejemplo' },
-                    { id: 2, estado_nuevo: 'revision', fundamento: 'Enviado a revisión académica', fecha_cambio: '2025-06-15', usuario: 'Ana Ejemplo' },
-                    { id: 3, estado_nuevo: 'firmado', fundamento: 'Convenio firmado por ambas partes', fecha_cambio: '2025-06-30', usuario: 'Marta Ejemplo' },
-                ],
-                detalle_pasantia: null,
-            },
-            '2': {
-                id: 2,
-                codigo: 'CONV-2025-007',
-                titulo: 'Práctica profesional supervisada',
-                estado: 'firmado',
-                fecha_creacion: '2025-12-31',
-                fecha_vencimiento: '2026-12-31',
-                firma_gestor: true,
-                firma_decano: true,
-                tipo_instrumento: { id: 2, nombre: 'Específico de pasantía' },
-                representantes: [
-                    { id: 1, nombre: 'UNLPam · Facultad de Ingeniería', cargo: 'Decano/a' },
-                    { id: 3, nombre: 'Empresa Tecnológica Pampeana', cargo: 'Apoderado Legal' },
-                ],
-                documentos: [
-                    { id: 11, nombre_archivo: 'Convenio_pasantia_007.pdf', tipo: 'Principal', peso: '1,1 MB', hash: '8d12...f40e', url: '#' },
-                    { id: 12, nombre_archivo: 'Plan_trabajo_alumno.pdf', tipo: 'Anexo', peso: '0,4 MB', hash: '7be1...09d4', url: '#' },
-                ],
-                padre: {
-                    id: 1,
-                    codigo: 'CONV-2025-001',
-                    titulo: 'Marco de colaboración · Universidad Ejemplo',
-                    fecha_vencimiento: '2028-06-30',
-                },
-                adendas: [
-                    {
-                        id: 3,
-                        codigo: 'CONV-2026-003',
-                        titulo: 'Amplía la carga horaria',
-                        fecha_vencimiento: null,
-                        tipo_instrumento: { nombre: 'Adenda' },
-                    },
-                ],
-                historial_estados: [
-                    { id: 4, estado_nuevo: 'borrador', fundamento: 'Borrador creado', fecha_cambio: '2025-12-10', usuario: 'Ana Ejemplo' },
-                    { id: 5, estado_nuevo: 'firmado', fundamento: 'Aprobado y firmado', fecha_cambio: '2025-12-31', usuario: 'Marta Ejemplo' },
-                ],
-                detalle_pasantia: {
-                    fecha_inicio_pasantia: '2026-02-01',
-                    fecha_fin_pasantia: '2026-12-31',
-                    carga_horaria: '20 hs semanales',
-                    asignacion_estimulo: '$ 250.000',
-                },
-            },
-        };
-
-        // Si entran a cualquier otro ID de la tabla de prueba, armamos uno genérico válido
-        const encontrado = mocksPorId[String(id)] || {
-            id,
-            codigo: `CONV-2025-00${id}`,
-            titulo: 'Convenio Institucional · Entidad Asociada',
-            estado: 'firmado',
-            fecha_creacion: '2025-08-15',
-            fecha_vencimiento: '2027-08-15',
-            firma_gestor: true,
-            firma_decano: true,
-            tipo_instrumento: { nombre: 'Marco de colaboración' },
-            representantes: [
-                { id: 1, nombre: 'UNLPam · Facultad de Ingeniería', cargo: 'Decano/a' },
-                { id: 2, nombre: 'Entidad Asociada', cargo: 'Representante Legal' },
-            ],
-            documentos: [
-                { id: 20, nombre_archivo: `Convenio_${id}.pdf`, tipo: 'Principal', peso: '1,2 MB', hash: '9c4a...11b0', url: '#' },
-            ],
-            padre: null,
-            adendas: [],
-            historial_estados: [
-                { id: 1, estado_nuevo: 'borrador', fundamento: 'Borrador creado', fecha_cambio: '2025-08-01', usuario: 'Ana Ejemplo' },
-                { id: 2, estado_nuevo: 'firmado', fundamento: 'Convenio firmado', fecha_cambio: '2025-08-15', usuario: 'Marta Ejemplo' },
-            ],
-            detalle_pasantia: null,
-        };
-
-        setConvenio(encontrado);
-        setLoading(false);
-    }, [id]);
-
-    // ================= FIN DATOS ESTÁTICOS DE PRUEBA (BORRAR AL CONECTAR LARAVEL) =================
 
     // Formateo de fechas YYYY-MM-DD -> DD/MM/YYYY
     const formatearFecha = (fechaStr) => {

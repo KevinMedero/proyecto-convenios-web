@@ -65,7 +65,7 @@ export default function LoginPage() {
       }
 
       // Redirigimos al usuario hacia la pantalla principal del sistema
-      router.push('/dashboard');
+      router.push('/inicio');
     } catch (err) {
       // Mostramos el mensaje de error en pantalla si falló la conexión o las credenciales
       setError(err.message);
