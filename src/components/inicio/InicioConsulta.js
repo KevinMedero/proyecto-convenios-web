@@ -2,6 +2,9 @@
 
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
+import SearchFilters from '@/components/common/SearchFilters';
+import StatusBadge from '@/components/common/StatusBadge';
+import Pagination from '@/components/common/Pagination';
 
 export default function InicioConsulta() {
     // Estados para los datos traídos desde la API de Laravel
@@ -129,25 +132,26 @@ export default function InicioConsulta() {
         return `Vence ${dia}/${mes}/${anio}`;
     };
 
-    // Genera y descarga un archivo CSV compatible con Excel en español (UTF-8 con BOM y separado por ;)
+    // Genera y descarga un archivo CSV compatible con Excel en español (UTF-8 con BOM y separado por ;) (neutralizando fórmulas)
     const handleExportarCSV = () => {
+        const sanitizarCelda = (val) => {
+        const texto = String(val ?? '').replace(/"/g, '""');
+        const seguro = /^[=+\-@]/.test(texto) ? `'${texto}` : texto;
+        return `"${seguro}"`;
+        };
+
         const encabezados = ['Código', 'Título', 'Tipo de Instrumento', 'Unidad', 'Estado', 'Vigencia'];
         const filas = convenios.map((c) => [
-            `"${c.codigo}"`,
-            `"${(c.titulo || '').replace(/"/g, '""')}"`,
-            `"${c.tipo_instrumento?.nombre || 'Sin especificar'}"`,
-            `"Ingeniería"`,
-            `"Firmado"`,
-            `"${formatearVigencia(c)}"`,
+            sanitizarCelda(c.codigo),
+            sanitizarCelda(c.titulo),
+            sanitizarCelda(c.tipo_instrumento?.nombre || 'Sin especificar'),
+            sanitizarCelda('Ingeniería'),
+            sanitizarCelda('Firmado'),
+            sanitizarCelda(formatearVigencia(c)),
         ]);
 
-        // Usamos punto y coma (;) para que Excel en español separe cada dato en su columna
-        const contenidoCSV = [
-            encabezados.join(';'),
-            ...filas.map((f) => f.join(';')),
-        ].join('\n');
-
         // Agregamos '\uFEFF' (BOM UTF-8) al inicio para que Excel reconozca los acentos y la "ñ"
+        const contenidoCSV = [encabezados.join(';'), ...filas.map((f) => f.join(';'))].join('\n');
         const blob = new Blob(['\uFEFF' + contenidoCSV], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -213,13 +217,9 @@ export default function InicioConsulta() {
                     <td className="text-secondary">
                         {conv.tipo_instrumento?.nombre || 'Sin especificar'}
                     </td>
-                    <td className="text-secondary">
-                        Ingeniería
-                    </td>
+                    <td className="text-secondary">Ingeniería</td>
                     <td>
-                        <span className="badge-firmado">
-                            Firmado
-                        </span>
+                        <StatusBadge estado={conv.estado} />
                     </td>
                     <td className="text-secondary" style={{ fontSize: '0.8rem' }}>
                         {formatearVigencia(conv)}
@@ -247,105 +247,25 @@ export default function InicioConsulta() {
             <h1 className="page-title mb-3">Convenios Firmados</h1>
 
             {/* Barra de Filtros */}
-            <div className="filter-card p-3 mb-3 shadow-sm">
-                <div className="row g-2 align-items-end">
-                    {/* Buscador más compacto (3 columnas en lugar de 4) */}
-                    <div className="col-12 col-lg-3">
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Buscar
-                        </label>
-                        <input
-                            type="text"
-                            className="form-control form-control-sm"
-                            placeholder="Código, título o entidad"
-                            value={q}
-                            onChange={(e) => { setQ(e.target.value); setPagina(1); }}
-                        />
-                    </div>
-
-                    {/* Filtro por Tipo de Instrumento */}
-                    <div className="col-6 col-md-3 col-lg">
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Tipo
-                        </label>
-                        <select
-                            className="form-select form-select-sm"
-                            value={tipoId}
-                            onChange={(e) => { setTipoId(e.target.value); setPagina(1); }}
-                        >
-                            <option value="">Todos</option>
-                            {tiposInstrumento.map((t) => (
-                                <option key={t.id} value={t.id}>{t.nombre}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Filtro de Estado (ancho suficiente para que no se corte "Firmado") */}
-                    <div className="col-6 col-md-3 col-lg-auto" style={{ minWidth: '115px' }}>
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Estado
-                        </label>
-                        <select className="form-select form-select-sm bg-light" value="firmado" disabled>
-                            <option value="firmado">Firmado</option>
-                        </select>
-                    </div>
-
-                    {/* Filtro por Unidad Responsable */}
-                    <div className="col-6 col-md-3 col-lg">
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Unidad
-                        </label>
-                        <select
-                            className="form-select form-select-sm"
-                            value={unidadId}
-                            onChange={(e) => { setUnidadId(e.target.value); setPagina(1); }}
-                        >
-                            <option value="">Todas</option>
-                            {unidades.map((u) => (
-                                <option key={u.id} value={u.id}>{u.nombre}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Filtro Fecha Desde (ancho suficiente para ver dd/mm/aaaa completo) */}
-                    <div className="col-6 col-md-3 col-lg-auto" style={{ minWidth: '135px' }}>
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Firma desde
-                        </label>
-                        <input
-                            type="date"
-                            className="form-control form-control-sm"
-                            value={fechaDesde}
-                            onChange={(e) => { setFechaDesde(e.target.value); setPagina(1); }}
-                        />
-                    </div>
-
-                    {/* Filtro Fecha Hasta (ancho suficiente para ver dd/mm/aaaa completo) */}
-                    <div className="col-6 col-md-3 col-lg-auto" style={{ minWidth: '135px' }}>
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Firma hasta
-                        </label>
-                        <input
-                            type="date"
-                            className="form-control form-control-sm"
-                            value={fechaHasta}
-                            onChange={(e) => { setFechaHasta(e.target.value); setPagina(1); }}
-                        />
-                    </div>
-
-                    {/* Botón Limpiar Filtros ajustado a su texto */}
-                    <div className="col-6 col-md-3 col-lg-auto text-end">
-                        <button
-                            type="button"
-                            onClick={handleLimpiarFiltros}
-                            className="btn btn-link btn-sm text-decoration-none fw-semibold px-1 mb-1 text-nowrap"
-                            style={{ color: 'var(--unlpam-blue-btn)', fontSize: '0.78rem' }}
-                        >
-                            Limpiar filtros
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <SearchFilters
+                rol="consulta"
+                q={q}
+                setQ={setQ}
+                tipoId={tipoId}
+                setTipoId={setTipoId}
+                estado="firmado"
+                setEstado={() => {}}
+                unidadId={unidadId}
+                setUnidadId={setUnidadId}
+                fechaDesde={fechaDesde}
+                setFechaDesde={setFechaDesde}
+                fechaHasta={fechaHasta}
+                setFechaHasta={setFechaHasta}
+                tiposInstrumento={tiposInstrumento}
+                unidades={unidades}
+                onLimpiar={handleLimpiarFiltros}
+                onResetPagina={() => setPagina(1)}
+            />
 
             {/* Sub-barra: Contador total y botón Exportar CSV */}
             <div className="d-flex justify-content-between align-items-center mb-2 px-1">
@@ -409,37 +329,7 @@ export default function InicioConsulta() {
             </div>
 
             {/* Pie de Paginación */}
-            <div className="d-flex justify-content-between align-items-center px-1">
-                <span className="text-muted" style={{ fontSize: '0.78rem' }}>
-                    Mostrando {paginacion.from || 0}–{paginacion.to || 0} de {paginacion.total}
-                </span>
-
-                <nav>
-                    <ul className="pagination pagination-sm mb-0">
-                        <li className={`page-item ${pagina <= 1 ? 'disabled' : ''}`}>
-                            <button className="page-link" onClick={() => setPagina(pagina - 1)}>
-                                ‹
-                            </button>
-                        </li>
-                        {Array.from({ length: paginacion.last_page }, (_, i) => i + 1).map((num) => (
-                            <li key={num} className={`page-item ${pagina === num ? 'active' : ''}`}>
-                                <button
-                                    className="page-link"
-                                    style={pagina === num ? { backgroundColor: 'var(--unlpam-blue-btn)', borderColor: 'var(--unlpam-blue-btn)' } : {}}
-                                    onClick={() => setPagina(num)}
-                                >
-                                    {num}
-                                </button>
-                            </li>
-                        ))}
-                        <li className={`page-item ${pagina >= paginacion.last_page ? 'disabled' : ''}`}>
-                            <button className="page-link" onClick={() => setPagina(pagina + 1)}>
-                                ›
-                            </button>
-                        </li>
-                    </ul>
-                </nav>
-            </div>
+            <Pagination paginacion={paginacion} pagina={pagina} setPagina={setPagina} />
         </div>
     );
 }

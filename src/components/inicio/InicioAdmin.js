@@ -23,6 +23,27 @@ export default function InicioAdmin() {
 
     // Estado para controlar qué filas padre están expandidas mostrando sus convenios hijos/adendas
     const [expandidos, setExpandidos] = useState({});
+  
+    {/* Barra de Filtros */}
+      <SearchFilters
+        rol="admin"
+        q={q}
+        setQ={setQ}
+        tipoId={tipoId}
+        setTipoId={setTipoId}
+        estado={estado}
+        setEstado={setEstado}
+        unidadId={unidadId}
+        setUnidadId={setUnidadId}
+        fechaDesde={fechaDesde}
+        setFechaDesde={setFechaDesde}
+        fechaHasta={fechaHasta}
+        setFechaHasta={setFechaHasta}
+        tiposInstrumento={tiposInstrumento}
+        unidades={unidades}
+        onLimpiar={handleLimpiarFiltros}
+        onResetPagina={() => setPagina(1)}
+      />
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
@@ -270,7 +291,20 @@ export default function InicioAdmin() {
     return (
         <div>
             {/* Título principal de la vista */}
-            <h1 className="page-title mb-3">Convenios</h1>
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+              <h1 className="page-title mb-0">Panel de Administración</h1>
+              <Link
+                href="/convenios/nuevo"
+                className="btn btn-sm text-white fw-semibold px-3 py-2"
+                style={{
+                  backgroundColor: 'var(--unlpam-blue-btn)',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                }}
+              >
+                + Nuevo convenio
+              </Link>
+            </div>
 
             {/* Barra de Filtros */}
             <div className="filter-card p-3 mb-3 shadow-sm">

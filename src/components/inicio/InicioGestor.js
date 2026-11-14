@@ -267,8 +267,21 @@ export default function InicioGestor() {
 
     return (
         <div>
-            {/* Título principal de la vista */}
-            <h1 className="page-title mb-3">Convenios en revisión</h1>
+            {/* Encabezado de la vista con botón de alta */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+              <h1 className="page-title mb-0">Gestión de Convenios</h1>
+              <Link
+                href="/convenios/nuevo"
+                className="btn btn-sm text-white fw-semibold px-3 py-2"
+                style={{
+                  backgroundColor: 'var(--unlpam-blue-btn)',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                }}
+              >
+                + Nuevo convenio
+              </Link>
+            </div>
 
             {/* Barra de Filtros */}
             <div className="filter-card p-3 mb-3 shadow-sm">

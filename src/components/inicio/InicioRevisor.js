@@ -1,12 +1,16 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import SearchFilters from '@/components/common/SearchFilters';
+import StatusBadge from '@/components/common/StatusBadge';
+import Pagination from '@/components/common/Pagination';
 
 export default function InicioRevisor() {
     // Estados para los datos traídos desde la API de Laravel
     const [convenios, setConvenios] = useState([]);
     const [tiposInstrumento, setTiposInstrumento] = useState([]);
+    const [ultimosVistos, setUltimosVistos] = useState([]);
     const [unidades, setUnidades] = useState([]);
     const [paginacion, setPaginacion] = useState({ current_page: 1, last_page: 1, total: 0, from: 0, to: 0 });
     const [loading, setLoading] = useState(true);
@@ -24,6 +28,19 @@ export default function InicioRevisor() {
     const [expandidos, setExpandidos] = useState({});
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+  
+     // Carga los últimos convenios visitados desde localStorage
+      useEffect(() => {
+        const vistosGuardados = JSON.parse(localStorage.getItem('ultimos_convenios_vistos') || '[]');
+        if (vistosGuardados.length > 0) {
+          setUltimosVistos(vistosGuardados);
+        } else {
+          setUltimosVistos([
+            { id: 1, codigo: 'CONV-2025-001', titulo: 'Marco de colaboración · Universidad Ejemplo', cuando: 'Ayer' },
+            { id: 2, codigo: 'CONV-2025-007', titulo: 'Práctica profesional supervisada', cuando: 'Hace 3 días' },
+          ]);
+        }
+      }, []);
 
     // Cargar catálogos de filtros (Tipos de Instrumento y Unidades) al montar la pantalla
     useEffect(() => {
@@ -103,6 +120,58 @@ export default function InicioRevisor() {
         setFechaDesde('');
         setFechaHasta('');
         setPagina(1);
+    };
+  
+  // Calcula borde izquierdo y badge usando únicamente campos reales (historial_estados y fecha_creacion)
+  const obtenerEstiloUrgencia = (conv) => {
+    const historial = conv.historial_estados || [];
+    const vecesEnRevision = historial.filter((h) => h.estado_nuevo === 'revision').length;
+
+    // 1. Si pasó más de una vez a 'revision', fue reenviado tras corrección (amarillo)
+    if (vecesEnRevision > 1) {
+      return {
+        borderColor: '#eab308',
+        badgeBg: '#fef3c7',
+        badgeColor: '#92400e',
+        texto: '• Reenviado tras corrección',
+      };
+    }
+
+    // 2. Calcula días en revisión desde el último cambio a 'revision' o desde fecha_creacion
+    const ultimoPasoRevision = [...historial].reverse().find((h) => h.estado_nuevo === 'revision');
+    const fechaBase = ultimoPasoRevision?.fecha_cambio || conv.fecha_creacion;
+    const dias = fechaBase
+      ? Math.max(0, Math.floor((new Date() - new Date(fechaBase)) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+      // Si lleva 15 días o más en revisión sin resolverse -> urgente (rojo)
+      if (dias >= 15) {
+        return {
+          borderColor: '#b91c1c',
+          badgeBg: '#fee2e2',
+          badgeColor: '#991b1b',
+          texto: `▲ En revisión hace ${dias} días`,
+        };
+      }
+
+      // 3. Caso normal (gris)
+      return {
+        borderColor: '#d1d5db',
+        badgeBg: '#e5e7eb',
+        badgeColor: '#374151',
+        texto: dias === 0 ? '• Ingresado hoy' : `• Ingresado hace ${dias} ${dias === 1 ? 'día' : 'días'}`,
+      };
+    };
+
+    // Guarda en localStorage los últimos convenios abiertos para mostrarlos en "Últimos que viste"
+    const registrarVisto = (conv) => {
+      const actuales = JSON.parse(localStorage.getItem('ultimos_convenios_vistos') || '[]');
+      const filtrados = actuales.filter((item) => item.id !== conv.id);
+      const actualizado = [
+        { id: conv.id, codigo: conv.codigo, titulo: conv.titulo, cuando: 'Hoy' },
+        ...filtrados,
+      ].slice(0, 4);
+      localStorage.setItem('ultimos_convenios_vistos', JSON.stringify(actualizado));
     };
 
     // Alterna el desplegable de convenios relacionados (hijos)
@@ -268,108 +337,29 @@ export default function InicioRevisor() {
     return (
         <div>
             {/* Título principal de la vista */}
-            <h1 className="page-title mb-3">Convenios en revisión</h1>
+            <h1 className="page-title mb-3">Convenios Pendientes de Revisión</h1>
 
             {/* Barra de Filtros */}
-            <div className="filter-card p-3 mb-3 shadow-sm">
-                <div className="row g-2 align-items-end">
-                    {/* Buscador más compacto (3 columnas en lugar de 4) */}
-                    <div className="col-12 col-lg-3">
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Buscar
-                        </label>
-                        <input
-                            type="text"
-                            className="form-control form-control-sm"
-                            placeholder="Código, título o entidad"
-                            value={q}
-                            onChange={(e) => { setQ(e.target.value); setPagina(1); }}
-                        />
-                    </div>
-
-                    {/* Filtro por Tipo de Instrumento */}
-                    <div className="col-6 col-md-3 col-lg">
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Tipo
-                        </label>
-                        <select
-                            className="form-select form-select-sm"
-                            value={tipoId}
-                            onChange={(e) => { setTipoId(e.target.value); setPagina(1); }}
-                        >
-                            <option value="">Todos</option>
-                            {tiposInstrumento.map((t) => (
-                                <option key={t.id} value={t.id}>{t.nombre}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* El revisor solo puede consultar convenios en revisión */}
-                    <div className="col-6 col-md-3 col-lg-auto" style={{ minWidth: '115px' }}>
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Estado
-                        </label>
-                        <select className="form-select form-select-sm bg-light" value="revision" disabled>
-                            <option value="revision">En revisión</option>
-                        </select>
-                    </div>
-
-                    {/* Filtro por Unidad Responsable */}
-                    <div className="col-6 col-md-3 col-lg">
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Unidad
-                        </label>
-                        <select
-                            className="form-select form-select-sm"
-                            value={unidadId}
-                            onChange={(e) => { setUnidadId(e.target.value); setPagina(1); }}
-                        >
-                            <option value="">Todas</option>
-                            {unidades.map((u) => (
-                                <option key={u.id} value={u.id}>{u.nombre}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Filtro Fecha Desde (ancho suficiente para ver dd/mm/aaaa completo) */}
-                    <div className="col-6 col-md-3 col-lg-auto" style={{ minWidth: '135px' }}>
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Firma desde
-                        </label>
-                        <input
-                            type="date"
-                            className="form-control form-control-sm"
-                            value={fechaDesde}
-                            onChange={(e) => { setFechaDesde(e.target.value); setPagina(1); }}
-                        />
-                    </div>
-
-                    {/* Filtro Fecha Hasta (ancho suficiente para ver dd/mm/aaaa completo) */}
-                    <div className="col-6 col-md-3 col-lg-auto" style={{ minWidth: '135px' }}>
-                        <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: '0.75rem' }}>
-                            Firma hasta
-                        </label>
-                        <input
-                            type="date"
-                            className="form-control form-control-sm"
-                            value={fechaHasta}
-                            onChange={(e) => { setFechaHasta(e.target.value); setPagina(1); }}
-                        />
-                    </div>
-
-                    {/* Botón Limpiar Filtros ajustado a su texto */}
-                    <div className="col-6 col-md-3 col-lg-auto text-end">
-                        <button
-                            type="button"
-                            onClick={handleLimpiarFiltros}
-                            className="btn btn-link btn-sm text-decoration-none fw-semibold px-1 mb-1 text-nowrap"
-                            style={{ color: 'var(--unlpam-blue-btn)', fontSize: '0.78rem' }}
-                        >
-                            Limpiar filtros
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <SearchFilters
+              rol="revisor"
+              q={q}
+              setQ={setQ}
+              tipoId={tipoId}
+              setTipoId={setTipoId}
+              estado="revision"
+              setEstado={() => {}}
+              unidadId={unidadId}
+              setUnidadId={setUnidadId}
+              fechaDesde={fechaDesde}
+              setFechaDesde={setFechaDesde}
+              fechaHasta={fechaHasta}
+              setFechaHasta={setFechaHasta}
+              tiposInstrumento={tiposInstrumento}
+              unidades={unidades}
+              onLimpiar={handleLimpiarFiltros}
+              onResetPagina={() => setPagina(1)}
+            />
+           
 
             {/* Sub-barra: Contador total y botón Exportar CSV */}
             <div className="d-flex justify-content-between align-items-center mb-2 px-1">
@@ -391,75 +381,112 @@ export default function InicioRevisor() {
             {error && (
                 <div className="alert alert-danger py-2 small">{error}</div>
             )}
-
-            {/* Tabla Principal de Convenios */}
-            <div className="table-card shadow-sm mb-3">
-                <div className="table-responsive">
-                    <table className="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th style={{ width: '42%' }}>Convenio</th>
-                                <th style={{ width: '18%' }}>Tipo</th>
-                                <th style={{ width: '13%' }}>Unidad</th>
-                                <th style={{ width: '11%' }}>Estado</th>
-                                <th style={{ width: '11%' }}>Vigencia</th>
-                                <th style={{ width: '5%' }} className="text-end"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="6" className="text-center py-4 text-muted">
-                                        Cargando convenios en revisión...
-                                    </td>
-                                </tr>
-                            ) : convenios.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" className="text-center py-4 text-muted">
-                                        No se encontraron convenios en revisión con los filtros seleccionados.
-                                    </td>
-                                </tr>
-                            ) : (
-                                // La API ya pagina los resultados; se muestran todos los registros de esta página.
-                                (conveniosRaiz.length > 0 ? conveniosRaiz : convenios)
-                                    .map((conv) => renderizarFilasConvenio(conv, 0))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+            
+            {/* Sección: Para revisar */}
+            <div className="d-flex justify-content-between align-items-center mb-2 mt-2">
+              <h2 className="h6 fw-bold text-dark mb-0">Para revisar</h2>
+              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                {paginacion.total} {paginacion.total === 1 ? 'convenio pendiente' : 'convenios pendientes'}
+              </span>
             </div>
 
-            {/* Pie de Paginación */}
-            <div className="d-flex justify-content-between align-items-center px-1">
-                <span className="text-muted" style={{ fontSize: '0.78rem' }}>
-                    Mostrando {paginacion.from || 0}–{paginacion.to || 0} de {paginacion.total}
-                </span>
+            {loading ? (
+              <div className="text-muted py-4 small">Cargando convenios pendientes de revisión...</div>
+            ) : convenios.length === 0 ? (
+              <div className="filter-card p-4 text-center text-muted small mb-3">
+                No hay convenios pendientes de revisión con los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="d-flex flex-column gap-2 mb-3">
+                {convenios.slice((pagina - 1) * 5, pagina * 5).map((conv) => {
+                  const estilo = obtenerEstiloUrgencia(conv);
 
-                <nav>
-                    <ul className="pagination pagination-sm mb-0">
-                        <li className={`page-item ${pagina <= 1 ? 'disabled' : ''}`}>
-                            <button className="page-link" onClick={() => setPagina(pagina - 1)}>
-                                ‹
-                            </button>
-                        </li>
-                        {Array.from({ length: paginacion.last_page }, (_, i) => i + 1).map((num) => (
-                            <li key={num} className={`page-item ${pagina === num ? 'active' : ''}`}>
-                                <button
-                                    className="page-link"
-                                    style={pagina === num ? { backgroundColor: 'var(--unlpam-blue-btn)', borderColor: 'var(--unlpam-blue-btn)' } : {}}
-                                    onClick={() => setPagina(num)}
-                                >
-                                    {num}
-                                </button>
-                            </li>
-                        ))}
-                        <li className={`page-item ${pagina >= paginacion.last_page ? 'disabled' : ''}`}>
-                            <button className="page-link" onClick={() => setPagina(pagina + 1)}>
-                                ›
-                            </button>
-                        </li>
-                    </ul>
-                </nav>
+                  return (
+                    <div
+                      key={conv.id}
+                      className="bg-white rounded-3 shadow-sm px-3 py-3 d-flex flex-wrap justify-content-between align-items-center gap-3"
+                      style={{
+                        border: '1px solid #e5e7eb',
+                        borderLeft: `4px solid ${estilo.borderColor}`,
+                      }}
+                    >
+                      {/* Datos e insignias a la izquierda */}
+                      <div>
+                        <div className="text-muted fw-semibold" style={{ fontSize: '0.73rem' }}>
+                          {conv.codigo}
+                        </div>
+                        <div className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>
+                          {conv.titulo}
+                        </div>
+                        <div className="d-flex flex-wrap align-items-center gap-2">
+                          <StatusBadge estado={conv.estado} />
+                          <span
+                            className="badge rounded-pill fw-semibold"
+                            style={{
+                              backgroundColor: estilo.badgeBg,
+                              color: estilo.badgeColor,
+                              fontSize: '0.72rem',
+                              padding: '0.32em 0.65em',
+                            }}
+                          >
+                            {estilo.texto}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Botones a la derecha */}
+                      <div className="d-flex align-items-center gap-2">
+                        <Link
+                          href={`/convenios/${conv.id}`}
+                          onClick={() => registrarVisto(conv)}
+                          className="btn btn-sm bg-white border fw-semibold px-3 py-1"
+                          style={{ color: '#374151', borderRadius: '6px', fontSize: '0.8rem' }}
+                        >
+                          Ver convenio
+                        </Link>
+                        <Link
+                          href={`/convenios/${conv.id}/revisar`}
+                          onClick={() => registrarVisto(conv)}
+                          className="btn btn-sm text-white fw-semibold px-3 py-1"
+                          style={{
+                            backgroundColor: 'var(--unlpam-blue-btn)',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                          }}
+                        >
+                          Revisar
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+           
+
+            {/* Paginación de la lista Para revisar */}
+            <div className="mb-4">
+              <Pagination paginacion={paginacion} pagina={pagina} setPagina={setPagina} />
+            </div>
+            
+            {/* Sección inferior: Últimos que viste */}
+            <h2 className="h6 fw-bold text-dark mb-2 mt-4">Últimos que viste</h2>
+            <div className="d-flex flex-column gap-2">
+              {ultimosVistos.map((visto) => (
+                <Link
+                  key={visto.id}
+                  href={`/convenios/${visto.id}`}
+                  className="bg-white rounded-3 border px-3 py-2 d-flex justify-content-between align-items-center text-decoration-none shadow-sm"
+                  style={{ borderColor: '#e5e7eb' }}
+                >
+                  <span className="text-dark" style={{ fontSize: '0.82rem' }}>
+                    <span className="fw-semibold">{visto.codigo}</span> · {visto.titulo}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                    {visto.cuando}
+                  </span>
+                </Link>
+              ))}
             </div>
         </div>
     );
