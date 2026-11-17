@@ -25,7 +25,8 @@ export default function InicioPage() {
 
     // Extraemos la propiedad 'rol', la pasamos a minúsculas para evitar problemas de mayúsculas
     // (ej. "Consulta" vs "consulta"), y si no tiene rol asignado asumimos 'consulta' por defecto.
-    setRol((userData.rol || 'consulta').toLowerCase());
+    const rawRol = typeof userData.rol === 'string' ? userData.rol : userData.rol?.nombre || 'consulta';
+    setRol(rawRol.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
   }, []);
 
   // Mientras 'rol' sea null (durante la milésima de segundo inicial antes de leer localStorage),
@@ -43,8 +44,10 @@ export default function InicioPage() {
     //case 'decano':
       //return <InicioDecano />;
 
-    // Aceptamos tanto 'administrador' como 'admin' por si la API devuelve cualquiera de los dos.
+    // Aceptamos las distintas etiquetas que puede devolver la API para Administración.
     case 'administracion':
+    case 'administrador':
+    case 'admin':
       return <InicioAdmin />;
 
     // Si es 'consulta' (o cualquier otro valor no contemplado), mostramos la grilla de solo lectura.

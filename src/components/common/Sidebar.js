@@ -7,13 +7,15 @@ export default function Sidebar({ user, alertasCount = 0, onLogout }) {
   const pathname = usePathname();
 
   // Normalizamos el rol en minúscula y sin tildes para comparar sin errores
-  const rolActual = (user?.rol || 'consulta')
+  const rawRol = typeof user?.rol === 'string' ? user.rol : user?.rol?.nombre || 'consulta';
+  const rolActual = rawRol
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
-  const puedeVerConvenios = ['revision', 'gestion', 'administracion'].includes(rolActual);
-  const puedeCrearConvenio = ['gestion', 'administracion'].includes(rolActual);
+  const esAdministrador = ['administracion', 'administrador', 'admin'].includes(rolActual);
+  const puedeVerConvenios = ['revision', 'gestion'].includes(rolActual) || esAdministrador;
+  const puedeCrearConvenio = rolActual === 'gestion' || esAdministrador;
 
   // Orden del menú lateral: Inicio -> Convenios -> Nuevo convenio -> Estadísticas -> Alertas
   // Consulta: Inicio, Estadísticas, Alertas

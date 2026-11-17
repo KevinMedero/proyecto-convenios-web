@@ -63,20 +63,35 @@ export default function ConvenioActionCard({
           Ver convenio
         </Link>
 
-        {accionPrimariaTexto && accionPrimariaHref && (
-          <Link
-            href={accionPrimariaHref}
-            onClick={() => onVerClick && onVerClick(convenio)}
-            className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
-            style={{
-              backgroundColor: 'var(--unlpam-blue-btn)',
-              border: '1.5px solid var(--unlpam-blue-btn)',
-              borderRadius: '8px',
-              fontSize: '0.8rem',
-            }}
-          >
-            {accionPrimariaTexto}
-          </Link>
+        {accionPrimariaTexto && (
+          accionPrimariaHref ? (
+            <Link
+              href={accionPrimariaHref}
+              onClick={() => onVerClick && onVerClick(convenio)}
+              className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
+              style={{
+                backgroundColor: 'var(--unlpam-blue-btn)',
+                border: '1.5px solid var(--unlpam-blue-btn)',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+              }}
+            >
+              {accionPrimariaTexto}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
+              style={{
+                backgroundColor: 'var(--unlpam-blue-btn)',
+                border: '1.5px solid var(--unlpam-blue-btn)',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+              }}
+            >
+              {accionPrimariaTexto}
+            </button>
+          )
         )}
       </div>
     </div>
