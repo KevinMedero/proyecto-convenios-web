@@ -1,13 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import SearchFilters from '@/components/common/SearchFilters';
 import Pagination from '@/components/common/Pagination';
 import ConveniosTable from '@/components/common/ConveniosTable';
 
 export default function ConveniosPage() {
-  const [rol, setRol] = useState('revisor');
   const [convenios, setConvenios] = useState([]);
   const [tiposInstrumento, setTiposInstrumento] = useState([]);
   const [unidades, setUnidades] = useState([]);
@@ -25,18 +23,6 @@ export default function ConveniosPage() {
   const [pagina, setPagina] = useState(1);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
-
-  // Detectar rol del usuario logueado
-  useEffect(() => {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
-      const rawRol = typeof userData?.rol === 'string' ? userData.rol : userData?.rol?.nombre || 'revisor';
-      const norm = rawRol.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      setRol(norm);
-    } catch {
-      setRol('revisor');
-    }
-  }, []);
 
   // Cargar catálogos
   useEffect(() => {
@@ -146,25 +132,10 @@ export default function ConveniosPage() {
     document.body.removeChild(link);
   };
 
-  const puedeCrear = ['gestion', 'gestor', 'administracion', 'admin'].includes(rol);
-
   return (
     <div>
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h1 className="page-title mb-0">Convenios</h1>
-        {puedeCrear && (
-          <Link
-            href="/convenios/nuevo"
-            className="btn btn-sm text-white fw-semibold px-3 py-2"
-            style={{
-              backgroundColor: 'var(--unlpam-blue-btn)',
-              borderRadius: '6px',
-              fontSize: '0.82rem',
-            }}
-          >
-            + Nuevo convenio
-          </Link>
-        )}
       </div>
 
       {/* Pasamos rol="admin" para que el select de Estado esté habilitado con todos los estados */}

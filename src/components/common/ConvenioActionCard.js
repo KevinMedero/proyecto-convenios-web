@@ -11,6 +11,7 @@ export default function ConvenioActionCard({
   badgeColor = '#374151',
   accionPrimariaTexto = '',
   accionPrimariaHref = '',
+  onAccionClick,
   onVerClick,
 }) {
   return (
@@ -81,6 +82,7 @@ export default function ConvenioActionCard({
           ) : (
             <button
               type="button"
+              onClick={() => onAccionClick && onAccionClick(convenio)}
               className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
               style={{
                 backgroundColor: 'var(--unlpam-blue-btn)',
