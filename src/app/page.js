@@ -4,6 +4,7 @@
 // Importamos useState para guardar los datos del formulario y useRouter para cambiar de pantalla
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function LoginPage() {
   // Inicializamos el enrutador para redirigir al usuario cuando inicie sesión
@@ -86,7 +87,13 @@ export default function LoginPage() {
           <div className="ms-md-4" style={{ maxWidth: '440px' }}>
             {/* Recuadro blanco para el logotipo institucional */}
             <div className="login-logo-box d-flex align-items-center justify-content-center mb-4 shadow-sm">
-              LOGO
+              <Image
+                            src="/logo.png"
+                            alt="Logo"
+                            width={120}
+                            height={60}
+                            style={{ objectFit: 'contain' }}
+                          />
             </div>
 
             {/* Título principal del sistema */}

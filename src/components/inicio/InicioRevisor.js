@@ -203,33 +203,73 @@ export default function InicioRevisor() {
         </span>
       </div>
 
-      {/* Listado de tarjetas de convenios pendientes */}
-      {loading ? (
-        <div className="text-muted py-4 small">Cargando convenios pendientes de revisión...</div>
-      ) : convenios.length === 0 ? (
-        <div className="filter-card p-4 text-center text-muted small mb-3">
-          No hay convenios pendientes de revisión con los filtros seleccionados.
-        </div>
-      ) : (
-        <div className="d-flex flex-column gap-2 mb-3">
-          {convenios.map((conv) => {
-            const estilo = obtenerEstiloUrgencia(conv);
-            return (
-              <ConvenioActionCard
-                key={conv.id}
-                convenio={conv}
-                bordeColor={estilo.bordeColor}
-                badgeTexto={estilo.texto}
-                badgeBg={estilo.badgeBg}
-                badgeColor={estilo.badgeColor}
-                accionPrimariaTexto="Revisar"
-                accionPrimariaHref={`/convenios/${conv.id}/revisar`}
-                onVerClick={registrarVisto}
-              />
-            );
-          })}
-        </div>
-      )}
+      {/* SECCIÓN 1: Borradores */}
+          <div className="d-flex justify-content-between align-items-center mb-2 mt-3">
+            <h2 className="h6 fw-bold text-dark mb-0">Convenios en Revision</h2>
+            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+              {convenios.length} {convenios.length === 1 ? 'convenio' : 'convenios'}
+            </span>
+          </div>
+
+          {convenios.length === 0 ? (
+            <div className="filter-card p-3 text-center text-muted small mb-3">
+              No hay convenios en estado revision pendientes.
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-2 mb-4">
+              {convenios.map((conv) => {
+                return (
+                  <div
+                    key={conv.id}
+                    className="bg-white rounded-3 shadow-sm px-3 py-3 d-flex flex-wrap justify-content-between align-items-center gap-3"
+                    style={{
+                      border: '1px solid #e5e7eb',
+                      borderLeft: `4px solid #d1d5db`,
+                    }}
+                  >
+                    <div>
+                      <div className="text-muted fw-semibold" style={{ fontSize: '0.73rem' }}>
+                        {conv.codigo}
+                      </div>
+                      <div className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>
+                        {conv.titulo}
+                      </div>
+                      <div className="d-flex flex-wrap align-items-center gap-2">
+                        <span
+                          className="badge rounded-pill fw-semibold"
+                          style={{
+                            backgroundColor: '#f3f4f6',
+                            color: '#374151',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '0.72rem',
+                            padding: '0.32em 0.65em',
+                          }}
+                        >
+                          Revision
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2">
+                      <Link
+                        href={`/convenios/${conv.id}`}
+                        onClick={() => registrarVisto(conv)}
+                        className="btn btn-sm bg-white fw-semibold px-3 py-2 text-nowrap"
+                        style={{
+                          color: 'var(--unlpam-blue-btn)',
+                          border: '1.5px solid var(--unlpam-blue-btn)',
+                          borderRadius: '8px',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        Ver convenio
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
       {/* Controles de paginación */}
       <div className="mb-4">

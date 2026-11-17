@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 export default function Sidebar({ user, onLogout }) {
   const pathname = usePathname();
@@ -104,7 +105,13 @@ export default function Sidebar({ user, onLogout }) {
         {/* Encabezado con Logo y Título del Sistema */}
         <div className="d-flex align-items-center gap-2 px-1 py-2 mb-4">
           <div className="sidebar-logo-box d-flex align-items-center justify-content-center flex-shrink-0">
-            LOGO
+            <Image
+              src="/logo.png"
+              alt="Logo"
+              width={120}
+              height={60}
+              style={{ objectFit: 'contain' }}
+            />
           </div>
           <div style={{ lineHeight: '1.2', fontSize: '0.85rem' }} className="fw-bold">
             Gestión de<br />Convenios
