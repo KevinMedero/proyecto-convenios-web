@@ -69,13 +69,15 @@ export default function Sidebar({ user, onLogout }) {
   const puedeVerConvenios = ['revision', 'gestion'].includes(rolActual) || esAdministrador;
   const puedeCrearConvenio = rolActual === 'gestion' || esAdministrador;
 
-  // Orden del menú lateral: Inicio -> Convenios -> Nuevo convenio -> Estadísticas -> Alertas
+  // Orden del menú lateral: Inicio -> Convenios -> Usuarios -> Nuevo convenio -> Estadísticas -> Alertas
   // Consulta: Inicio, Estadísticas, Alertas
   // Revisor: Inicio, Convenios, Estadísticas, Alertas
-  // Gestor y Administrador: Inicio, Convenios, Nuevo convenio, Estadísticas, Alertas
+  // Gestor: Inicio, Convenios, Nuevo convenio, Estadísticas, Alertas
+  // Administración: Usuarios debajo de Convenios
   const menuItems = [
     { label: 'Inicio', href: '/inicio', visible: true },
     { label: 'Convenios', href: '/convenios', visible: puedeVerConvenios },
+    { label: 'Usuarios', href: '/usuarios', visible: esAdministrador },
     { label: 'Nuevo convenio', href: '/convenios/nuevo', visible: puedeCrearConvenio },
     { label: 'Estadísticas', href: '/estadisticas', visible: true },
     { label: 'Alertas', href: '/alertas', badge: alertasCount, visible: true },
