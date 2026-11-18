@@ -202,6 +202,7 @@ export default function InicioGestor({
         body: JSON.stringify({
           estado: 'revision',
           fundamento: fundamentoFinal,
+          revisor_id: Number(revisorSeleccionado),
         }),
       });
 
@@ -234,11 +235,9 @@ export default function InicioGestor({
   const handleLimpiarFiltros = () => {
     setQ('');
     setTipoId('');
-    setEstado('');
     setUnidadId('');
     setFechaDesde('');
     setFechaHasta('');
-    setPagina(1);
   };
 
   const obtenerConfigTarjetaVencimiento = (conv) => {
@@ -712,7 +711,10 @@ export default function InicioGestor({
 
                       <button
                         type="button"
-                        onClick={() => setModalRenovacion(conv)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModalRenovacion(conv);
+                        }}
                         className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
                         style={{
                           backgroundColor: 'var(--unlpam-blue-btn)',

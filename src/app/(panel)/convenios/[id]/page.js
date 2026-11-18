@@ -6,27 +6,49 @@ import Link from 'next/link';
 import StatusBadge from '@/components/common/StatusBadge';
 
 export default function FichaConvenioPage() {
-    // Captura el ID de la URL (/convenios/[id]) y permite navegar atrás
     const params = useParams();
     const router = useRouter();
     const id = params?.id;
 
-    // Estados principales de la vista
     const [convenio, setConvenio] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // Nuevos estados para roles y modal de rescisión
+    const [rolUsuario, setRolUsuario] = useState('');
+    const [modalRescision, setModalRescision] = useState(false);
+    const [fundamentoRescision, setFundamentoRescision] = useState('');
+    const [enviandoRescision, setEnviandoRescision] = useState(false);
+    const [errorRescision, setErrorRescision] = useState('');
+
+    // Modal de decisión del revisor: 'aprobado' | 'borrador' | null
+    const [accionRevision, setAccionRevision] = useState(null);
+    const [fundamentoRevision, setFundamentoRevision] = useState('');
+    const [enviandoRevision, setEnviandoRevision] = useState(false);
+    const [errorRevision, setErrorRevision] = useState('');
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
     useEffect(() => {
         if (!id) return;
 
-        const fetchConvenio = async () => {
+        const fetchDatos = async () => {
             setLoading(true);
             setError('');
             const token = localStorage.getItem('auth_token');
 
             try {
+                // 1. Consultamos el rol del usuario logueado
+                const resMe = await fetch(`${apiUrl}/me`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+                });
+                if (resMe.ok) {
+                    const userData = await resMe.json();
+                    console.log("Datos del usuario /me:", userData); // <--- MIRA ESTO EN LA CONSOLA (F12)
+                    setRolUsuario((userData.rol || '').toLowerCase());
+                }
+
+                // 2. Consultamos la información del convenio
                 const response = await fetch(`${apiUrl}/convenios/${id}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -47,10 +69,9 @@ export default function FichaConvenioPage() {
             }
         };
 
-        fetchConvenio();
+        fetchDatos();
     }, [apiUrl, id]);
 
-    // Formateo de fechas YYYY-MM-DD -> DD/MM/YYYY
     const formatearFecha = (fechaStr) => {
         if (!fechaStr) return 'Sin registrar';
         const soloFecha = String(fechaStr).split('T')[0].split(' ')[0];
@@ -59,7 +80,6 @@ export default function FichaConvenioPage() {
         return `${partes[2]}/${partes[1]}/${partes[0]}`;
     };
 
-    // Clasifica el vínculo del convenio hijo según su tipo de instrumento
     const obtenerEtiquetaHijo = (hijo) => {
         const tipo = (hijo.tipo_instrumento?.nombre || '').toLowerCase();
         if (tipo.includes('específico') || tipo.includes('especifico')) return 'Específico de';
@@ -68,7 +88,130 @@ export default function FichaConvenioPage() {
         return 'Relacionado';
     };
 
-    // Vistas tempranas mientras carga o si ocurre un error
+    const handleConfirmarRescision = async (e) => {
+        e.preventDefault();
+        if (!convenio) return;
+
+        setEnviandoRescision(true);
+        setErrorRescision('');
+        const token = localStorage.getItem('auth_token');
+
+        const textoFundamento = fundamentoRescision.trim()
+            ? fundamentoRescision.trim()
+            : 'Rescisión de convenio';
+
+        try {
+            const response = await fetch(`${apiUrl}/convenios/${convenio.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    estado: 'rescindido',
+                    fundamento: textoFundamento.slice(0, 45), // Límite estricto de 45 caracteres de la API
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                const msg = data?.errors ? Object.values(data.errors).flat().join(' ') : data?.message || 'No se pudo rescindir el convenio.';
+                throw new Error(msg);
+            }
+
+            try {
+                const hist = JSON.parse(localStorage.getItem('ultimos_convenios_vistos')) || [];
+                const actualizados = hist.map(item => {
+                    if (item.id === convenio.id) {
+                        return { ...item, estado: 'rescindido' };
+                    }
+                    return item;
+                });
+                localStorage.setItem('ultimos_convenios_vistos', JSON.stringify(actualizados));
+            } catch (e) {
+                console.error(e);
+            }
+
+
+            alert('El convenio fue rescindido con éxito.');
+            window.location.reload();
+        } catch (err) {
+            setErrorRescision(err.message);
+        } finally {
+            setEnviandoRescision(false);
+        }
+    };
+
+    const recargarConvenio = async () => {
+        const token = localStorage.getItem('auth_token');
+        const res = await fetch(`${apiUrl}/convenios/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        });
+        if (res.ok) setConvenio(await res.json());
+    };
+
+    const abrirModalRevision = (accion) => {
+        setFundamentoRevision('');
+        setErrorRevision('');
+        setAccionRevision(accion);
+    };
+
+    const handleConfirmarRevision = async (e) => {
+        e.preventDefault();
+        if (!convenio || !accionRevision) return;
+
+        setEnviandoRevision(true);
+        setErrorRevision('');
+        const token = localStorage.getItem('auth_token');
+
+        const textoPorDefecto =
+            accionRevision === 'aprobado' ? 'Aprobado en revisión' : 'Devuelto con observaciones';
+        const fundamento = (fundamentoRevision.trim() || textoPorDefecto).slice(0, 45);
+
+        try {
+            const response = await fetch(`${apiUrl}/convenios/${convenio.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ estado: accionRevision, fundamento }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                const msg = data?.errors
+                    ? Object.values(data.errors).flat().join(' ')
+                    : data?.message || 'No se pudo actualizar el convenio.';
+                throw new Error(msg);
+            }
+
+            // Mantiene al día el estado en "últimos convenios accedidos"
+            try {
+                const hist = JSON.parse(localStorage.getItem('ultimos_convenios_vistos')) || [];
+                localStorage.setItem(
+                    'ultimos_convenios_vistos',
+                    JSON.stringify(hist.map((item) =>
+                        item.id === convenio.id ? { ...item, estado: accionRevision } : item
+                    ))
+                );
+            } catch (e) {
+                console.error(e);
+            }
+
+            setAccionRevision(null);
+            await recargarConvenio();
+        } catch (err) {
+            setErrorRevision(err.message);
+        } finally {
+            setEnviandoRevision(false);
+        }
+    };
+
     if (loading) {
         return <div className="text-muted py-4">Cargando ficha del convenio...</div>;
     }
@@ -84,13 +227,11 @@ export default function FichaConvenioPage() {
         );
     }
 
-    // Documento principal para el botón superior "Descargar PDF"
     const docPrincipal = convenio.documentos?.[0];
     const fechaVencimiento = convenio.fecha_vencimiento || convenio.detalle_pasantia?.fecha_fin_pasantia;
     const cargaHoraria =
         convenio.detalle_pasantia?.carga_horaria_semanal ?? convenio.detalle_pasantia?.carga_horaria;
 
-    // Abre o descarga un documento PDF protegido con Sanctum desde Laravel
     const handleDescargarDocumento = async (doc, abrirEnPestana = false) => {
         const token = localStorage.getItem('auth_token');
         const nombreArchivo = doc.archivo || doc.nombre_archivo || doc.nombre || `convenio_${convenio.codigo}.pdf`;
@@ -135,7 +276,7 @@ export default function FichaConvenioPage() {
                 <span>›</span> <span>{convenio.codigo}</span>
             </div>
 
-            {/* Cabecera: Código, Título, Estado y Botones de acción generales */}
+            {/* Cabecera */}
             <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                 <div>
                     <div className="text-muted fw-semibold" style={{ fontSize: '0.8rem' }}>
@@ -147,7 +288,6 @@ export default function FichaConvenioPage() {
                     </div>
                 </div>
 
-                {/* Botones transversales (sin acciones de edición ni revisión) */}
                 <div className="d-flex align-items-center gap-2">
                     <button
                         type="button"
@@ -157,6 +297,57 @@ export default function FichaConvenioPage() {
                     >
                         Volver
                     </button>
+
+                    {['revision', 'administracion'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'revision' && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => abrirModalRevision('borrador')}
+                                className="btn btn-sm bg-white fw-semibold px-3 py-2"
+                                style={{
+                                    color: '#b91c1c',
+                                    border: '1.5px solid #b91c1c',
+                                    borderRadius: '8px',
+                                    fontSize: '0.82rem',
+                                }}
+                            >
+                                Devolver a borrador
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => abrirModalRevision('aprobado')}
+                                className="btn btn-sm text-white fw-semibold px-3 py-2"
+                                style={{
+                                    backgroundColor: 'var(--unlpam-blue-btn)',
+                                    border: '1.5px solid var(--unlpam-blue-btn)',
+                                    borderRadius: '8px',
+                                    fontSize: '0.82rem',
+                                }}
+                            >
+                                Aprobar
+                            </button>
+                        </>
+                    )}
+                    {/* Botón de Prescindir exclusivo para Gestión/Administración y solo si el convenio está firmado */}
+                    {['gestion', 'gestor', 'administracion', 'admin'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'firmado' && (                        <button
+                            type="button"
+                            onClick={() => {
+                                setFundamentoRescision('');
+                                setErrorRescision('');
+                                setModalRescision(true);
+                            }}
+                            className="btn btn-sm text-white fw-semibold px-3 py-2"
+                            style={{
+                                backgroundColor: '#b91c1c',
+                                border: '1.5px solid #991b1b',
+                                borderRadius: '8px',
+                                fontSize: '0.82rem',
+                            }}
+                        >
+                            Prescindir convenio
+                        </button>
+                    )}
 
                     <button
                         type="button"
@@ -177,9 +368,9 @@ export default function FichaConvenioPage() {
                 </div>
             </div>
 
-            {/* Grilla de 2 columnas igual a Figma */}
+            {/* Grilla de 2 columnas */}
             <div className="row g-3">
-                {/* COLUMNA IZQUIERDA (7 de 12): Datos generales + Detalle pasantía + Partes */}
+                {/* COLUMNA IZQUIERDA */}
                 <div className="col-12 col-lg-7 d-flex flex-column gap-3">
                     {/* Tarjeta 1: Datos generales */}
                     <div className="filter-card p-3 p-md-4 shadow-sm">
@@ -212,7 +403,9 @@ export default function FichaConvenioPage() {
 
                             <div className="col-6">
                                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>Firma Decano</div>
-                                <div className="fw-semibold text-dark">{convenio.firma_decano ? 'Registrada' : 'Pendiente'}</div>
+                                <div className="fw-semibold text-dark">
+                                    {convenio.firma_decano ? 'Registrada' : 'Pendiente'}
+                                </div>
                             </div>
                         </div>
 
@@ -283,7 +476,7 @@ export default function FichaConvenioPage() {
                     </div>
                 </div>
 
-                {/* COLUMNA DERECHA: Documentos, relaciones e historial */}
+                {/* COLUMNA DERECHA */}
                 <div className="col-12 col-lg-5 d-flex flex-column gap-3">
                     {/* Tarjeta 3: Documentos */}
                     <div className="filter-card p-3 p-md-4 shadow-sm">
@@ -350,7 +543,6 @@ export default function FichaConvenioPage() {
                             <div className="text-muted small">No posee convenios antecedentes ni derivados.</div>
                         ) : (
                             <div className="d-flex flex-column gap-2">
-                                {/* Convenio padre */}
                                 {convenio.padre && (
                                     <div className="p-2 rounded border bg-light">
                                         <div className="d-flex align-items-center gap-2 mb-1">
@@ -363,16 +555,12 @@ export default function FichaConvenioPage() {
                                                 {convenio.padre.codigo}
                                             </Link>
                                         </div>
-                                        <div className="text-muted" style={{ fontSize: '0.78rem' }}>
+                                        <div className="text-muted" style={{ fontSize: '0.78rem', wordBreak: 'break-all' }}>
                                             {convenio.padre.titulo}
-                                            {convenio.padre.fecha_vencimiento
-                                                ? ` · vence ${formatearFecha(convenio.padre.fecha_vencimiento)}`
-                                                : ''}
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Convenios hijos */}
                                 {convenio.adendas?.map((hijo) => (
                                     <div key={hijo.id} className="p-2 rounded border bg-light">
                                         <div className="d-flex align-items-center gap-2 mb-1">
@@ -385,11 +573,8 @@ export default function FichaConvenioPage() {
                                                 {hijo.codigo}
                                             </Link>
                                         </div>
-                                        <div className="text-muted" style={{ fontSize: '0.78rem' }}>
+                                        <div className="text-muted" style={{ fontSize: '0.78rem', wordBreak: 'break-all' }}>
                                             {hijo.titulo}
-                                            {hijo.fecha_vencimiento
-                                                ? ` · vence ${formatearFecha(hijo.fecha_vencimiento)}`
-                                                : ''}
                                         </div>
                                     </div>
                                 ))}
@@ -403,7 +588,7 @@ export default function FichaConvenioPage() {
 
                         {convenio.historial_estados && convenio.historial_estados.length > 0 ? (
                             <div className="d-flex flex-column gap-2">
-                                {convenio.historial_estados.map((item, idx) => (
+                                {convenio.historial_estados.slice().reverse().map((item, idx) => (
                                     <div
                                         key={item.id || idx}
                                         className="ps-3 py-1"
@@ -436,6 +621,186 @@ export default function FichaConvenioPage() {
                     </div>
                 </div>
             </div>
+
+            {/* MODAL: Prescindir / Rescindir Convenio */}
+            {modalRescision && (
+                <div
+                    className="modal d-block"
+                    tabIndex="-1"
+                    style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+                    onClick={() => !enviandoRescision && setModalRescision(false)}
+                >
+                    <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header bg-danger text-white py-2">
+                                <h5 className="modal-title fw-bold" style={{ fontSize: '0.95rem' }}>
+                                    ⚠️ Prescindir de convenio
+                                </h5>
+                                <button
+                                    type="button"
+                                    className="btn-close btn-close-white"
+                                    onClick={() => setModalRescision(false)}
+                                    disabled={enviandoRescision}
+                                ></button>
+                            </div>
+
+                            <form onSubmit={handleConfirmarRescision}>
+                                <div className="modal-body">
+                                    <div className="p-2 rounded bg-light border mb-3" style={{ fontSize: '0.82rem' }}>
+                                        <div className="text-muted fw-semibold">{convenio.codigo}</div>
+                                        <div className="fw-bold text-dark">{convenio.titulo}</div>
+                                    </div>
+
+                                    {errorRescision && (
+                                        <div className="alert alert-danger py-2 small">{errorRescision}</div>
+                                    )}
+
+                                    <div className="mb-2">
+                                        <label className="form-label fw-semibold small text-danger">
+                                            Fundamento de la rescisión (obligatorio, máx. 45 caracteres)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control form-control-sm"
+                                            maxLength={45}
+                                            required
+                                            placeholder="Ej: Mutuo acuerdo entre las partes"
+                                            value={fundamentoRescision}
+                                            onChange={(e) => setFundamentoRescision(e.target.value)}
+                                        />
+                                        <div className="text-end text-muted" style={{ fontSize: '0.7rem' }}>
+                                            {fundamentoRescision.length}/45
+                                        </div>
+                                        <div className="form-text" style={{ fontSize: '0.73rem' }}>
+                                            Esta acción cambiará el estado del convenio a <strong>Rescindido</strong> y quedará registrado en el historial de auditoría.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="modal-footer py-2">
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-secondary fw-semibold"
+                                        onClick={() => setModalRescision(false)}
+                                        disabled={enviandoRescision}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-sm text-white fw-semibold px-3"
+                                        style={{ backgroundColor: '#b91c1c' }}
+                                        disabled={enviandoRescision}
+                                    >
+                                        {enviandoRescision ? 'Procesando...' : 'Confirmar rescisión'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL: Aprobar / Desaprobar Convenio */}
+            {accionRevision && (
+                <div
+                    className="modal d-block"
+                    tabIndex="-1"
+                    style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+                    onClick={() => !enviandoRevision && setAccionRevision(null)}
+                >
+                    <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header py-2">
+                                <h5 className="modal-title fw-bold" style={{ fontSize: '0.95rem' }}>
+                                    {accionRevision === 'aprobado' ? 'Aprobar convenio' : 'Devolver a borrador'}
+                                </h5>
+                                <button
+                                    type="button"
+                                    className="btn-close"
+                                    aria-label="Cerrar"
+                                    onClick={() => setAccionRevision(null)}
+                                    disabled={enviandoRevision}
+                                ></button>
+                            </div>
+
+                            <form onSubmit={handleConfirmarRevision}>
+                                <div className="modal-body">
+                                    <div className="p-2 rounded bg-light border mb-3" style={{ fontSize: '0.82rem' }}>
+                                        <div className="text-muted fw-semibold">{convenio.codigo}</div>
+                                        <div className="fw-bold text-dark">{convenio.titulo}</div>
+                                    </div>
+
+                                    {accionRevision === 'aprobado' && (convenio.representantes?.length || 0) < 2 && (
+                                        <div className="alert alert-warning py-2 small">
+                                            Este convenio tiene menos de dos partes cargadas, así que no se podrá aprobar.
+                                        </div>
+                                    )}
+
+                                    {errorRevision && (
+                                        <div className="alert alert-danger py-2 small" role="alert">{errorRevision}</div>
+                                    )}
+
+                                    <div className="mb-2">
+                                        <label htmlFor="fundamento-revision" className="form-label fw-semibold small">
+                                            {accionRevision === 'aprobado'
+                                                ? 'Fundamento (opcional, máx. 45 caracteres)'
+                                                : 'Observación para el gestor (obligatoria, máx. 45 caracteres)'}
+                                        </label>
+                                        <input
+                                            id="fundamento-revision"
+                                            type="text"
+                                            className="form-control form-control-sm"
+                                            maxLength={45}
+                                            required={accionRevision === 'borrador'}
+                                            placeholder={
+                                                accionRevision === 'aprobado'
+                                                    ? 'Ej: Cláusulas verificadas'
+                                                    : 'Ej: Corregir cláusula de rescisión'
+                                            }
+                                            value={fundamentoRevision}
+                                            onChange={(e) => setFundamentoRevision(e.target.value)}
+                                        />
+                                        <div className="text-end text-muted" style={{ fontSize: '0.7rem' }}>
+                                            {fundamentoRevision.length}/45
+                                        </div>
+                                        <div className="form-text" style={{ fontSize: '0.73rem' }}>
+                                            {accionRevision === 'aprobado'
+                                                ? 'El convenio pasará a Aprobado y se avisará a gestión y administración.'
+                                                : 'El convenio volverá a Borrador y se avisará a gestión.'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="modal-footer py-2">
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-secondary fw-semibold"
+                                        onClick={() => setAccionRevision(null)}
+                                        disabled={enviandoRevision}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-sm text-white fw-semibold px-3"
+                                        style={{
+                                            backgroundColor: accionRevision === 'aprobado' ? 'var(--unlpam-blue-btn)' : '#b91c1c',
+                                        }}
+                                        disabled={enviandoRevision}
+                                    >
+                                        {enviandoRevision
+                                            ? 'Procesando...'
+                                            : accionRevision === 'aprobado'
+                                            ? 'Confirmar aprobación'
+                                            : 'Confirmar devolución'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
