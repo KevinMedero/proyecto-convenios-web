@@ -180,6 +180,7 @@ export default function EstadisticasPage() {
             const rawRol = typeof rawUser?.rol === 'string' ? rawUser.rol : rawUser?.rol?.nombre || 'consulta';
             const normalizado = rawRol.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore browser state after hydration.
             setUsuario(rawUser);
             if (normalizado.includes('admin')) setRol('administracion');
             else if (normalizado.includes('gest')) setRol('gestion');

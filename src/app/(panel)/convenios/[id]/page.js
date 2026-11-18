@@ -120,7 +120,6 @@ export default function FichaConvenioPage() {
                 const msg = data?.errors ? Object.values(data.errors).flat().join(' ') : data?.message || 'No se pudo rescindir el convenio.';
                 throw new Error(msg);
             }
-
             try {
                 const hist = JSON.parse(localStorage.getItem('ultimos_convenios_vistos')) || [];
                 const actualizados = hist.map(item => {
@@ -295,6 +294,57 @@ export default function FichaConvenioPage() {
                     >
                         Volver
                     </button>
+
+                    {['revision', 'administracion'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'revision' && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => abrirModalRevision('borrador')}
+                                className="btn btn-sm bg-white fw-semibold px-3 py-2"
+                                style={{
+                                    color: '#b91c1c',
+                                    border: '1.5px solid #b91c1c',
+                                    borderRadius: '8px',
+                                    fontSize: '0.82rem',
+                                }}
+                            >
+                                Devolver a borrador
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => abrirModalRevision('aprobado')}
+                                className="btn btn-sm text-white fw-semibold px-3 py-2"
+                                style={{
+                                    backgroundColor: 'var(--unlpam-blue-btn)',
+                                    border: '1.5px solid var(--unlpam-blue-btn)',
+                                    borderRadius: '8px',
+                                    fontSize: '0.82rem',
+                                }}
+                            >
+                                Aprobar
+                            </button>
+                        </>
+                    )}
+                    {/* Botón de Prescindir exclusivo para Gestión/Administración y solo si el convenio está firmado */}
+                    {['gestion', 'gestor', 'administracion', 'admin'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'firmado' && (                        <button
+                            type="button"
+                            onClick={() => {
+                                setFundamentoRescision('');
+                                setErrorRescision('');
+                                setModalRescision(true);
+                            }}
+                            className="btn btn-sm text-white fw-semibold px-3 py-2"
+                            style={{
+                                backgroundColor: '#b91c1c',
+                                border: '1.5px solid #991b1b',
+                                borderRadius: '8px',
+                                fontSize: '0.82rem',
+                            }}
+                        >
+                            Prescindir convenio
+                        </button>
+                    )}
 
                     {['revision', 'administracion'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'revision' && (
                         <>

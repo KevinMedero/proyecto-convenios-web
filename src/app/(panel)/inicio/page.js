@@ -26,6 +26,7 @@ export default function InicioPage() {
     // Extraemos la propiedad 'rol', la pasamos a minúsculas para evitar problemas de mayúsculas
     // (ej. "Consulta" vs "consulta"), y si no tiene rol asignado asumimos 'consulta' por defecto.
     const rawRol = typeof userData.rol === 'string' ? userData.rol : userData.rol?.nombre || 'consulta';
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore browser state after hydration.
     setRol(rawRol.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
   }, []);
 

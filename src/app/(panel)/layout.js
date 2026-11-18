@@ -24,6 +24,7 @@ export default function PanelLayout({ children }) {
     const storedUser = localStorage.getItem('user_data');
     if (storedUser) {
       try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore browser state after hydration.
         setUser(JSON.parse(storedUser));
       } catch (e) {
         console.error('Error leyendo user_data', e);

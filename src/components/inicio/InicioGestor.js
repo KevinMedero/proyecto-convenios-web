@@ -6,7 +6,7 @@ import SearchFilters from '@/components/common/SearchFilters';
 import ConvenioActionCard from '@/components/common/ConvenioActionCard';
 import ModalRenovacion from '@/components/common/ModalRenovacion';
 
-export default function InicioGestor() {
+export default function InicioGestor({ modoAdministrador = false }) {
   const [conveniosFiltrados, setConveniosFiltrados] = useState([]);
   const [conveniosBorrador, setConveniosBorrador] = useState([]);
   const [conveniosFirmados, setConveniosFirmados] = useState([]);
@@ -99,7 +99,6 @@ export default function InicioGestor() {
         if (q.trim()) params.append('q', q.trim());
         if (tipoId) params.append('tipo_instrumento_id', tipoId);
         if (estado) params.append('estado', estado);
-        if (unidadId) params.append('unidad_academica_id', unidadId);
         if (fechaDesde) params.append('fecha_desde', fechaDesde);
         if (fechaHasta) params.append('fecha_hasta', fechaHasta);
 
@@ -116,7 +115,13 @@ export default function InicioGestor() {
         const lista = Array.isArray(result.data) ? result.data : [];
 
         const listaProcesada = unidadId
-          ? lista.filter((c) => String(c.unidad_academica_id || c.unidad?.id || '') === String(unidadId))
+          ? lista.filter((c) => {
+              const unidadDirecta = String(c.unidad_responsable_id ?? c.unidad?.id ?? '');
+              const enRepresentantes = (c.representantes || []).some(
+                (r) => String(r.unidad_responsable_id ?? '') === String(unidadId)
+              );
+              return unidadDirecta === String(unidadId) || enRepresentantes;
+            })
           : lista;
 
         const sinRevision = listaProcesada.filter((c) => (c.estado || '').toLowerCase() !== 'revision');
@@ -259,15 +264,30 @@ export default function InicioGestor() {
     <div>
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
-          <h1 className="page-title mb-0">Gestión de Convenios</h1>
+          <h1 className="page-title mb-0">
+            {modoAdministrador ? 'Administración de Convenios' : 'Gestión de Convenios'}
+          </h1>
           <span className="text-muted" style={{ fontSize: '0.8rem' }}>
             Total en vista: <strong>{totalConveniosVisibles}</strong> convenios
           </span>
         </div>
+        {modoAdministrador && (
+          <Link
+            href="/convenios/nuevo"
+            className="btn btn-sm text-white fw-semibold px-3 py-2"
+            style={{
+              backgroundColor: 'var(--unlpam-blue-btn)',
+              borderRadius: '6px',
+              fontSize: '0.82rem',
+            }}
+          >
+            + Nuevo convenio
+          </Link>
+        )}
       </div>
 
       <SearchFilters
-        rol="gestion"
+        rol={modoAdministrador ? 'admin' : 'gestion'}
         q={q}
         setQ={setQ}
         tipoId={tipoId}
