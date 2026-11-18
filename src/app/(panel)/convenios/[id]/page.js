@@ -229,8 +229,6 @@ export default function FichaConvenioPage() {
 
     const docPrincipal = convenio.documentos?.[0];
     const fechaVencimiento = convenio.fecha_vencimiento || convenio.detalle_pasantia?.fecha_fin_pasantia;
-    const cargaHoraria =
-        convenio.detalle_pasantia?.carga_horaria_semanal ?? convenio.detalle_pasantia?.carga_horaria;
 
     const handleDescargarDocumento = async (doc, abrirEnPestana = false) => {
         const token = localStorage.getItem('auth_token');
@@ -418,20 +416,16 @@ export default function FichaConvenioPage() {
                                 <div className="row g-2" style={{ fontSize: '0.83rem' }}>
                                     <div className="col-6">
                                         <span className="text-muted">Inicio: </span>
-                                        <span className="fw-semibold">
-                                            {formatearFecha(convenio.detalle_pasantia.fecha_inicio || convenio.detalle_pasantia.fecha_inicio_pasantia)}
-                                        </span>
+                                        <span className="fw-semibold">{formatearFecha(convenio.detalle_pasantia.fecha_inicio)}</span>
                                     </div>
                                     <div className="col-6">
                                         <span className="text-muted">Fin: </span>
-                                        <span className="fw-semibold">
-                                            {formatearFecha(convenio.detalle_pasantia.fecha_fin || convenio.detalle_pasantia.fecha_fin_pasantia)}
-                                        </span>
+                                        <span className="fw-semibold">{formatearFecha(convenio.detalle_pasantia.fecha_fin)}</span>
                                     </div>
-                                    {cargaHoraria && (
+                                    {convenio.detalle_pasantia.carga_horaria_semanal && (
                                         <div className="col-6">
                                             <span className="text-muted">Carga horaria: </span>
-                                            <span className="fw-semibold">{cargaHoraria}</span>
+                                            <span className="fw-semibold">{convenio.detalle_pasantia.carga_horaria_semanal}</span>
                                         </div>
                                     )}
                                     {convenio.detalle_pasantia.asignacion_estimulo && (
@@ -460,12 +454,7 @@ export default function FichaConvenioPage() {
                                             {rep.nombre} {rep.apellido || ''}
                                         </div>
                                         <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                                            {[
-                                                rep.cargo && `Representante: ${rep.cargo}`,
-                                                rep.email && `Email: ${rep.email}`,
-                                                rep.dni && `DNI: ${rep.dni}`,
-                                                rep.cuil && `CUIL: ${rep.cuil}`,
-                                            ].filter(Boolean).join(' · ') || 'Parte interviniente'}
+                                            {rep.email || rep.cuil ? `Email: ${rep.email || 'N/D'}` : 'Parte interviniente'}
                                         </div>
                                     </div>
                                 ))}
@@ -498,10 +487,10 @@ export default function FichaConvenioPage() {
                                                 style={{
                                                     fontSize: '0.82rem',
                                                     wordBreak: 'break-all',
-                                                    overflowWrap: 'anywhere',
+                                                    overflowWrap: 'anywhere'
                                                 }}
                                             >
-                                                {doc.archivo || doc.nombre_archivo || doc.nombre || `Documento_${idx + 1}.pdf`}
+                                                {doc.archivo || doc.nombre_archivo || `Documento_${idx + 1}.pdf`}
                                             </div>
                                             <div className="text-muted" style={{ fontSize: '0.74rem' }}>
                                                 {idx === 0 ? 'Principal' : 'Adjunto'} · PDF
@@ -595,22 +584,16 @@ export default function FichaConvenioPage() {
                                         style={{ borderLeft: '2px solid #d1d5db' }}
                                     >
                                         <div className="fw-semibold text-dark" style={{ fontSize: '0.84rem' }}>
-                                            {item.estado_anterior || item.estado_nuevo ? (
-                                                <>
-                                                    De <span className="text-capitalize">{item.estado_anterior || '—'}</span> a{' '}
-                                                    <span className="text-capitalize">{item.estado_nuevo || '—'}</span>
-                                                </>
-                                            ) : (
-                                                'Movimiento registrado'
-                                            )}
+                                            De <span className="text-capitalize">{item.estado_anterior}</span> a{' '}
+                                            <span className="text-capitalize">{item.estado_nuevo}</span>
                                         </div>
                                         {item.fundamento && (
                                             <div className="text-secondary" style={{ fontSize: '0.78rem' }}>
                                                 Fundamento: {item.fundamento}
                                             </div>
                                         )}
-                                        <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-                                            {item.user?.name || item.usuario || 'Sistema'} · {formatearFecha(item.fecha_cambio)}
+                                        <div className="text-muted" style={{ fontSize: '0.73rem' }}>
+                                            {item.user?.name || 'Sistema'} · {formatearFecha(item.fecha_cambio)}
                                         </div>
                                     </div>
                                 ))}

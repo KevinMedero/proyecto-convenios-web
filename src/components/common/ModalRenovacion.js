@@ -19,10 +19,7 @@ export default function ModalRenovacion({ convenio, onClose, onRenovado }) {
     const token = localStorage.getItem('auth_token');
 
     // Calcular la nueva fecha de vencimiento sumando el plazo seleccionado
-    const fechaBaseStr =
-      convenio.fecha_vencimiento ||
-      convenio.detalle_pasantia?.fecha_fin_pasantia ||
-      new Date().toISOString().split('T')[0];
+    const fechaBaseStr = convenio.fecha_vencimiento || new Date().toISOString().split('T')[0];
     const fechaBase = new Date(fechaBaseStr);
 
     if (opcionPlazo === '6_meses') {
@@ -91,10 +88,7 @@ export default function ModalRenovacion({ convenio, onClose, onRenovado }) {
                 <div className="text-muted fw-semibold">{convenio.codigo}</div>
                 <div className="fw-bold text-dark">{convenio.titulo}</div>
                 <div className="text-muted mt-1" style={{ fontSize: '0.75rem' }}>
-                  Vencimiento actual:{' '}
-                  {convenio.fecha_vencimiento ||
-                    convenio.detalle_pasantia?.fecha_fin_pasantia ||
-                    'Sin registrar'}
+                  Vencimiento actual: {convenio.fecha_vencimiento || 'Sin registrar'}
                 </div>
               </div>
 

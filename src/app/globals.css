@@ -1,10 +1,10 @@
 :root {
-  --unlpam-navy: #19324a;
+  --unlpam-navy: #1f3a5a;
   --unlpam-gold: #f5b400;
   --unlpam-cream: #f6f4ee;
   --unlpam-burgundy: #8b2e2e;
-  --unlpam-blue-btn: #0d5296;
-  --unlpam-blue-btn-hover: #093d73;
+  --unlpam-blue-btn: #0f5a9c;
+  --unlpam-blue-btn-hover: #0a4a7f;
 }
 
 body {
@@ -65,7 +65,7 @@ body {
 
 .form-control:focus {
   border-color: var(--unlpam-blue-btn);
-  box-shadow: 0 0 0 0.2rem rgba(13, 82, 150, 0.15);
+  box-shadow: 0 0 0 0.2rem rgba(15, 90, 156, 0.15);
 }
 
 

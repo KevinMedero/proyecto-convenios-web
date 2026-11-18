@@ -189,8 +189,7 @@ export default function NuevoConvenioPage() {
         throw new Error(mensajeValidacion);
       }
 
-      const convenioCreado = resultado?.data || resultado;
-      router.push(convenioCreado?.id ? `/convenios/${convenioCreado.id}` : '/convenios');
+      router.push('/inicio');
     } catch (err) {
       setError(err.message);
       setGuardando(false);

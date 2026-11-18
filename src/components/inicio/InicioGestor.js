@@ -5,26 +5,15 @@ import Link from 'next/link';
 import SearchFilters from '@/components/common/SearchFilters';
 import ConvenioActionCard from '@/components/common/ConvenioActionCard';
 import ModalRenovacion from '@/components/common/ModalRenovacion';
-import Pagination from '@/components/common/Pagination';
 
-export default function InicioGestor({
-  mostrarEncabezado = true,
-  modoAdministrador = false,
-} = {}) {
-  const [convenios, setConvenios] = useState([]);
+export default function InicioGestor() {
+  const [conveniosFiltrados, setConveniosFiltrados] = useState([]);
   const [conveniosBorrador, setConveniosBorrador] = useState([]);
+  const [conveniosFirmados, setConveniosFirmados] = useState([]);
   const [conveniosProximosVencer, setConveniosProximosVencer] = useState([]);
   const [ultimosVistos, setUltimosVistos] = useState([]);
   const [tiposInstrumento, setTiposInstrumento] = useState([]);
   const [unidades, setUnidades] = useState([]);
-  const [pagina, setPagina] = useState(1);
-  const [paginacion, setPaginacion] = useState({
-    current_page: 1,
-    last_page: 1,
-    total: 0,
-    from: 0,
-    to: 0,
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exitoMsg, setExitoMsg] = useState('');
@@ -37,6 +26,11 @@ export default function InicioGestor({
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
 
+  // Detecta si el usuario aplicó al menos un filtro
+  const hayFiltrosActivos = Boolean(
+    q.trim() || tipoId || estado || unidadId || fechaDesde || fechaHasta
+  );
+
   // Estados para el Modal de Asignar Revisor
   const [modalConvenio, setModalConvenio] = useState(null);
   const [revisores, setRevisores] = useState([]);
@@ -44,6 +38,8 @@ export default function InicioGestor({
   const [observacionAsignacion, setObservacionAsignacion] = useState('');
   const [enviandoAsignacion, setEnviandoAsignacion] = useState(false);
   const [errorModal, setErrorModal] = useState('');
+
+  // Estado para el Modal de Renovación rápida
   const [modalRenovacion, setModalRenovacion] = useState(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
@@ -100,11 +96,10 @@ export default function InicioGestor({
       try {
         const params = new URLSearchParams();
         params.append('por_pagina', '50');
-        if (modoAdministrador) params.append('page', String(pagina));
         if (q.trim()) params.append('q', q.trim());
         if (tipoId) params.append('tipo_instrumento_id', tipoId);
-        if (modoAdministrador && estado) params.append('estado', estado);
-        if (unidadId) params.append('unidad_id', unidadId);
+        if (estado) params.append('estado', estado);
+        if (unidadId) params.append('unidad_academica_id', unidadId);
         if (fechaDesde) params.append('fecha_desde', fechaDesde);
         if (fechaHasta) params.append('fecha_hasta', fechaHasta);
 
@@ -118,20 +113,15 @@ export default function InicioGestor({
         if (!response.ok) throw new Error('No se pudieron cargar los convenios de inicio.');
 
         const result = await response.json();
-        const lista = Array.isArray(result) ? result : Array.isArray(result.data) ? result.data : [];
+        const lista = Array.isArray(result.data) ? result.data : [];
 
-        setConvenios(lista);
-        if (modoAdministrador) {
-          setPaginacion({
-            current_page: result.current_page || pagina,
-            last_page: result.last_page || 1,
-            total: result.total ?? lista.length,
-            from: lista.length === 0 ? 0 : result.from || 1,
-            to: lista.length === 0 ? 0 : result.to || lista.length,
-          });
-        }
-        const sinRevision = lista.filter((c) => (c.estado || '').toLowerCase() !== 'revision');
+        const listaProcesada = unidadId
+          ? lista.filter((c) => String(c.unidad_academica_id || c.unidad?.id || '') === String(unidadId))
+          : lista;
+
+        const sinRevision = listaProcesada.filter((c) => (c.estado || '').toLowerCase() !== 'revision');
         const borradores = sinRevision.filter((c) => (c.estado || '').toLowerCase() === 'borrador');
+        const firmados = sinRevision.filter((c) => (c.estado || '').toLowerCase() === 'firmado');
         const proximosVencer = sinRevision.filter((c) => {
           const fechaVenc = c.fecha_vencimiento || c.detalle_pasantia?.fecha_fin_pasantia;
           if (!fechaVenc) return false;
@@ -139,7 +129,9 @@ export default function InicioGestor({
           return dias >= 0 && dias <= 45;
         });
 
+        setConveniosFiltrados(listaProcesada);
         setConveniosBorrador(borradores);
+        setConveniosFirmados(firmados);
         setConveniosProximosVencer(proximosVencer);
       } catch (err) {
         setError(err.message);
@@ -149,7 +141,7 @@ export default function InicioGestor({
     };
 
     fetchDatosInicio();
-  }, [apiUrl, modoAdministrador, pagina, q, tipoId, estado, unidadId, fechaDesde, fechaHasta]);
+  }, [apiUrl, q, tipoId, estado, unidadId, fechaDesde, fechaHasta]);
 
   const registrarUltimoVisto = (conv) => {
     try {
@@ -216,11 +208,6 @@ export default function InicioGestor({
       }
 
       setConveniosBorrador((prev) => prev.filter((c) => c.id !== modalConvenio.id));
-      setConvenios((prev) =>
-        prev.map((conv) =>
-          conv.id === modalConvenio.id ? { ...conv, estado: 'revision' } : conv
-        )
-      );
       setExitoMsg(
         `El convenio ${modalConvenio.codigo} pasó a estado "En revisión" y se generó la notificación para ${nombreRevisor}.`
       );
@@ -264,164 +251,29 @@ export default function InicioGestor({
     return { bordeColor: '#d1d5db', badgeTexto: '' };
   };
 
-  const obtenerConfigOperacion = (conv) => {
-    const est = (conv.estado || '').toLowerCase();
-    const historial = conv.historial_estados || [];
-    const fueDevuelto = historial.some(
-      (item) =>
-        (item.estado_anterior || '').toLowerCase() === 'revision' &&
-        (item.estado_nuevo || '').toLowerCase() === 'borrador'
-    );
-
-    if (est === 'borrador') {
-      return fueDevuelto
-        ? {
-            bordeColor: '#b91c1c',
-            badgeTexto: '▲ Devuelto con observaciones',
-            badgeBg: '#fee2e2',
-            badgeColor: '#991b1b',
-            accionPrimariaTexto: 'Corregir',
-            accionPrimariaHref: `/convenios/${conv.id}/editar`,
-          }
-        : {
-            bordeColor: '#d1d5db',
-            accionPrimariaTexto: 'Asignar revisor',
-            accion: 'asignar',
-          };
-    }
-
-    if (est === 'aprobado') {
-      return {
-        bordeColor: '#eab308',
-        badgeTexto: '• Pendiente de firma',
-        badgeBg: '#fef3c7',
-        badgeColor: '#92400e',
-        accionPrimariaTexto: 'Registrar firma',
-        accionPrimariaHref: `/convenios/${conv.id}`,
-      };
-    }
-
-    if (est === 'firmado') {
-      const config = obtenerConfigTarjetaVencimiento(conv);
-      if (config.badgeTexto) {
-        return {
-          ...config,
-          accionPrimariaTexto: 'Iniciar renovación',
-          accion: 'renovar',
-        };
-      }
-    }
-
-    return { bordeColor: '#d1d5db' };
-  };
-
-  const renderTarjetaOperacion = (conv) => {
-    const config = obtenerConfigOperacion(conv);
-    return (
-      <ConvenioActionCard
-        key={conv.id}
-        convenio={conv}
-        bordeColor={config.bordeColor}
-        badgeTexto={config.badgeTexto}
-        badgeBg={config.badgeBg}
-        badgeColor={config.badgeColor}
-        accionPrimariaTexto={config.accionPrimariaTexto}
-        accionPrimariaHref={config.accionPrimariaHref}
-        onVerClick={registrarUltimoVisto}
-        onAccionClick={() => {
-          if (config.accion === 'asignar') abrirModalAsignar(conv);
-          if (config.accion === 'renovar') setModalRenovacion(conv);
-        }}
-      />
-    );
-  };
-
-  const filtrosActivos = Boolean(
-    q.trim() || tipoId || estado || unidadId || fechaDesde || fechaHasta
-  );
-  const conveniosAdminBorrador = convenios.filter(
-    (conv) => (conv.estado || '').toLowerCase() === 'borrador'
-  );
-  const conveniosAdminFirma = convenios.filter(
-    (conv) => (conv.estado || '').toLowerCase() === 'aprobado'
-  );
-  const conveniosAdminRenovacion = convenios.filter(
-    (conv) =>
-      (conv.estado || '').toLowerCase() !== 'revision' &&
-      obtenerConfigTarjetaVencimiento(conv).badgeTexto
-  );
-
-  const renderTarjetaRenovacion = (conv) => {
-    const config = obtenerConfigTarjetaVencimiento(conv);
-    return (
-      <ConvenioActionCard
-        key={conv.id}
-        convenio={conv}
-        bordeColor={config.bordeColor}
-        badgeTexto={config.badgeTexto}
-        badgeBg={config.badgeBg}
-        badgeColor={config.badgeColor}
-        accionPrimariaTexto="Iniciar renovación"
-        onVerClick={registrarUltimoVisto}
-        onAccionClick={() => setModalRenovacion(conv)}
-      />
-    );
-  };
-
-  const renderGrupoAdmin = (titulo, lista, mensajeVacio, renderTarjeta = renderTarjetaOperacion) => (
-    <section className="mb-4">
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <h2 className="h6 fw-bold text-dark mb-0">{titulo}</h2>
-        <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-          {lista.length} {lista.length === 1 ? 'convenio' : 'convenios'}
-        </span>
-      </div>
-      {lista.length === 0 ? (
-        <div className="filter-card p-3 text-center text-muted small">{mensajeVacio}</div>
-      ) : (
-        <div className="d-flex flex-column gap-2">{lista.map(renderTarjeta)}</div>
-      )}
-    </section>
-  );
+  const totalConveniosVisibles = hayFiltrosActivos
+    ? conveniosFiltrados.length
+    : conveniosBorrador.length + conveniosFirmados.length + conveniosProximosVencer.length;
 
   return (
     <div>
-      {(mostrarEncabezado || modoAdministrador) && (
-        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-          <div>
-            <h1 className="page-title mb-1">
-              {modoAdministrador ? 'Panel de Administración' : 'Gestión de Convenios'}
-            </h1>
-            {modoAdministrador && (
-              <p className="text-muted small mb-0">
-                Convenios agrupados según la operación que requieren.
-              </p>
-            )}
-          </div>
-          {!modoAdministrador && (
-            <Link
-              href="/convenios/nuevo"
-              className="btn btn-sm text-white fw-semibold px-3 py-2"
-              style={{
-                backgroundColor: 'var(--unlpam-blue-btn)',
-                borderRadius: '6px',
-                fontSize: '0.82rem',
-              }}
-            >
-              + Nuevo convenio
-            </Link>
-          )}
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h1 className="page-title mb-0">Gestión de Convenios</h1>
+          <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+            Total en vista: <strong>{totalConveniosVisibles}</strong> convenios
+          </span>
         </div>
-      )}
+      </div>
 
       <SearchFilters
-        rol={modoAdministrador ? 'admin' : 'gestion'}
+        rol="gestion"
         q={q}
         setQ={setQ}
         tipoId={tipoId}
         setTipoId={setTipoId}
-        estado={modoAdministrador ? estado : ''}
-        setEstado={modoAdministrador ? setEstado : () => {}}
+        estado={estado}
+        setEstado={setEstado}
         unidadId={unidadId}
         setUnidadId={setUnidadId}
         fechaDesde={fechaDesde}
@@ -431,16 +283,18 @@ export default function InicioGestor({
         tiposInstrumento={tiposInstrumento}
         unidades={unidades}
         onLimpiar={handleLimpiarFiltros}
-        onResetPagina={modoAdministrador ? () => setPagina(1) : undefined}
       />
 
       {error && <div className="alert alert-danger py-2 small">{error}</div>}
+
+      {/* Mensaje de éxito fijo debajo de los filtros */}
       {exitoMsg && (
-        <div className="alert alert-success alert-dismissible fade show py-2 small" role="alert">
+        <div className="alert alert-success py-2 small mb-3" role="alert">
           {exitoMsg}
           <button
             type="button"
-            className="btn-close py-2"
+            className="btn-close float-end"
+            style={{ fontSize: '0.65rem' }}
             onClick={() => setExitoMsg('')}
             aria-label="Cerrar"
           ></button>
@@ -449,73 +303,156 @@ export default function InicioGestor({
 
       {loading ? (
         <div className="text-muted py-4 small">Cargando panel de gestión...</div>
-      ) : modoAdministrador ? (
-        <>
-          {filtrosActivos ? (
-            renderGrupoAdmin(
-              'Resultados de búsqueda',
-              convenios,
-              'No se encontraron convenios con los filtros seleccionados.'
-            )
-          ) : (
-            <>
-              <div className="filter-card p-3 mb-3 shadow-sm d-flex align-items-center gap-3">
-                <div
-                  className="fw-bold"
-                  style={{ color: 'var(--unlpam-blue-btn)', fontSize: '1.6rem', lineHeight: 1 }}
-                >
-                  {paginacion.total}
-                </div>
-                <div>
-                  <div className="fw-semibold text-dark">Convenios encontrados</div>
-                  <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                    Agrupados según la operación pendiente.
-                  </div>
-                </div>
-              </div>
-              {renderGrupoAdmin(
-                'Borradores: asignar revisor',
-                conveniosAdminBorrador,
-                'No hay borradores pendientes de asignación.'
-              )}
-              {renderGrupoAdmin(
-                'Aprobados: registrar firma',
-                conveniosAdminFirma,
-                'No hay convenios aprobados pendientes de firma.'
-              )}
-              {renderGrupoAdmin(
-                'Próximos a vencer: iniciar renovación',
-                conveniosAdminRenovacion,
-                'No hay convenios próximos a vencer.',
-                renderTarjetaRenovacion
-              )}
+      ) : hayFiltrosActivos ? (
+        /* VISTA UNIFICADA CUANDO HAY FILTROS ACTIVOS */
+        <div className="mt-3 mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h2 className="h6 fw-bold text-dark mb-0">Resultados de búsqueda</h2>
+            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+              {conveniosFiltrados.length} {conveniosFiltrados.length === 1 ? 'convenio encontrado' : 'convenios encontrados'}
+            </span>
+          </div>
 
-              <section className="mb-3">
-                <h2 className="h6 fw-bold text-dark mb-2">Últimos convenios accedidos</h2>
-                {ultimosVistos.length === 0 ? (
-                  <div className="filter-card p-3 text-center text-muted small">
-                    Aún no has consultado ningún convenio recientemente.
+          {conveniosFiltrados.length === 0 ? (
+            <div className="filter-card p-4 text-center text-muted small">
+              No se encontraron convenios que coincidan con los filtros aplicados.
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-2">
+              {conveniosFiltrados.map((conv) => {
+                const estadoLower = (conv.estado || '').toLowerCase();
+                const cfgVenc = obtenerConfigTarjetaVencimiento(conv);
+                const historial = conv.historial_estados || [];
+                const fueDevuelto = historial.some(
+                  (h) => h.estado_anterior === 'revision' && h.estado_nuevo === 'borrador'
+                );
+
+                return (
+                  <div
+                    key={`filtrado-${conv.id}`}
+                    className="bg-white rounded-3 shadow-sm px-3 py-3 d-flex flex-wrap justify-content-between align-items-center gap-3"
+                    style={{
+                      border: '1px solid #e5e7eb',
+                      borderLeft: `4px solid ${estadoLower === 'borrador' && fueDevuelto ? '#b91c1c' : cfgVenc.bordeColor || '#10b981'}`,
+                    }}
+                  >
+                    <div>
+                      <div className="text-muted fw-semibold" style={{ fontSize: '0.73rem' }}>
+                        {conv.codigo}
+                      </div>
+                      <div className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>
+                        {conv.titulo}
+                      </div>
+                      <div className="d-flex flex-wrap align-items-center gap-2">
+                        <span
+                          className="badge rounded-pill fw-semibold text-capitalize"
+                          style={{
+                            backgroundColor: '#f3f4f6',
+                            color: '#374151',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '0.72rem',
+                            padding: '0.32em 0.65em',
+                          }}
+                        >
+                          {conv.estado}
+                        </span>
+                        {fueDevuelto && (
+                          <span
+                            className="badge rounded-pill fw-semibold"
+                            style={{
+                              backgroundColor: '#fee2e2',
+                              color: '#991b1b',
+                              fontSize: '0.72rem',
+                              padding: '0.32em 0.65em',
+                            }}
+                          >
+                            ▲ Devuelto con observaciones
+                          </span>
+                        )}
+                        {cfgVenc.badgeTexto && (
+                          <span
+                            className="badge rounded-pill fw-semibold"
+                            style={{
+                              backgroundColor: cfgVenc.badgeBg,
+                              color: cfgVenc.badgeColor,
+                              fontSize: '0.72rem',
+                              padding: '0.32em 0.65em',
+                            }}
+                          >
+                            {cfgVenc.badgeTexto}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2">
+                      <Link
+                        href={`/convenios/${conv.id}`}
+                        onClick={() => registrarUltimoVisto(conv)}
+                        className="btn btn-sm bg-white fw-semibold px-3 py-2 text-nowrap"
+                        style={{
+                          color: 'var(--unlpam-blue-btn)',
+                          border: '1.5px solid var(--unlpam-blue-btn)',
+                          borderRadius: '8px',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        Ver convenio
+                      </Link>
+
+                      {estadoLower === 'borrador' && (
+                        fueDevuelto ? (
+                          <Link
+                            href={`/convenios/${conv.id}/editar`}
+                            onClick={() => registrarUltimoVisto(conv)}
+                            className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
+                            style={{
+                              backgroundColor: 'var(--unlpam-blue-btn)',
+                              borderRadius: '8px',
+                              fontSize: '0.8rem',
+                            }}
+                          >
+                            Corregir
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => abrirModalAsignar(conv)}
+                            className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
+                            style={{
+                              backgroundColor: 'var(--unlpam-blue-btn)',
+                              borderRadius: '8px',
+                              fontSize: '0.8rem',
+                            }}
+                          >
+                            Asignar revisor
+                          </button>
+                        )
+                      )}
+
+                      {cfgVenc.badgeTexto && (
+                        <button
+                          type="button"
+                          onClick={() => setModalRenovacion(conv)}
+                          className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
+                          style={{
+                            backgroundColor: 'var(--unlpam-blue-btn)',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                          }}
+                        >
+                          Iniciar renovación
+                        </button>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="d-flex flex-column gap-2">
-                    {ultimosVistos.map((conv) => (
-                      <ConvenioActionCard
-                        key={`reciente-${conv.id}`}
-                        convenio={conv}
-                        bordeColor="#0d5296"
-                        onVerClick={registrarUltimoVisto}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-            </>
+                );
+              })}
+            </div>
           )}
-          {modoAdministrador && (
-            <Pagination paginacion={paginacion} pagina={pagina} setPagina={setPagina} />
-          )}
-        </>
+        </div>
       ) : (
+        /* VISTA ORIGINAL DE 3 LISTADOS CUANDO NO HAY FILTROS */
         <>
           {/* SECCIÓN 1: Borradores */}
           <div className="d-flex justify-content-between align-items-center mb-2 mt-3">
@@ -646,9 +583,10 @@ export default function InicioGestor({
               No hay convenios próximos a vencer en el período de alerta.
             </div>
           ) : (
-            <div className="d-flex flex-column gap-2 mb-3">
+            <div className="d-flex flex-column gap-2 mb-4">
               {conveniosProximosVencer.map((conv) => {
                 const cfg = obtenerConfigTarjetaVencimiento(conv);
+
                 return (
                   <div
                     key={conv.id}
@@ -732,7 +670,69 @@ export default function InicioGestor({
             </div>
           )}
 
-          {/* SECCIÓN 3: Últimos accedidos */}
+          {/* SECCIÓN 3: Convenios Firmados y Vigentes */}
+          <div className="d-flex justify-content-between align-items-center mb-2 mt-4">
+            <h2 className="h6 fw-bold text-dark mb-0">Convenios Firmados y Vigentes</h2>
+            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+              {conveniosFirmados.length} {conveniosFirmados.length === 1 ? 'convenio' : 'convenios'}
+            </span>
+          </div>
+
+          {conveniosFirmados.length === 0 ? (
+            <div className="filter-card p-3 text-center text-muted small mb-3">
+              No hay convenios en estado firmado actualmente.
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-2 mb-4">
+              {conveniosFirmados.map((conv) => (
+                <div
+                  key={`firmado-${conv.id}`}
+                  className="bg-white rounded-3 shadow-sm px-3 py-3 d-flex flex-wrap justify-content-between align-items-center gap-3"
+                  style={{
+                    border: '1px solid #e5e7eb',
+                    borderLeft: '4px solid #10b981',
+                  }}
+                >
+                  <div>
+                    <div className="text-muted fw-semibold" style={{ fontSize: '0.73rem' }}>
+                      {conv.codigo}
+                    </div>
+                    <div className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>
+                      {conv.titulo}
+                    </div>
+                    <span
+                      className="badge rounded-pill fw-semibold text-capitalize"
+                      style={{
+                        backgroundColor: '#d1fae5',
+                        color: '#065f46',
+                        fontSize: '0.72rem',
+                        padding: '0.32em 0.65em',
+                      }}
+                    >
+                      Firmado (Activo)
+                    </span>
+                  </div>
+
+                  <div>
+                    <Link
+                      href={`/convenios/${conv.id}`}
+                      onClick={() => registrarUltimoVisto(conv)}
+                      className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
+                      style={{
+                        backgroundColor: 'var(--unlpam-blue-btn)',
+                        borderRadius: '8px',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      Gestionar / Ver ficha
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* SECCIÓN 4: Últimos accedidos */}
           <div className="d-flex justify-content-between align-items-center mb-2 mt-5">
             <h2 className="h6 fw-bold text-dark mb-0">Últimos convenios accedidos</h2>
           </div>
@@ -746,7 +746,7 @@ export default function InicioGestor({
                 <div key={`reciente-${conv.id}`}>
                   <ConvenioActionCard
                     convenio={conv}
-                    bordeColor="#0d5296"
+                    bordeColor="#0f5a9c"
                   />
                 </div>
               ))}
@@ -755,7 +755,7 @@ export default function InicioGestor({
         </>
       )}
 
-      {/* MODAL: Asignar Revisor */}
+      {/* MODAL 1: Asignar Revisor */}
       {modalConvenio && (
         <div
           className="modal d-block"
@@ -854,26 +854,18 @@ export default function InicioGestor({
         </div>
       )}
 
+      {/* MODAL 2: Renovación */}
       {modalRenovacion && (
         <ModalRenovacion
           convenio={modalRenovacion}
           onClose={() => setModalRenovacion(null)}
-          onRenovado={(respuesta) => {
-            const convenioActualizado = respuesta?.data || respuesta;
-            setConvenios((prev) =>
-              prev.map((conv) =>
-                conv.id === convenioActualizado.id ? { ...conv, ...convenioActualizado } : conv
-              )
-            );
-            setConveniosProximosVencer((prev) =>
-              prev.filter((conv) => conv.id !== convenioActualizado.id)
-            );
-            setExitoMsg(`El convenio ${convenioActualizado.codigo} fue renovado con éxito.`);
+          onRenovado={(convActualizado) => {
+            setExitoMsg(`El convenio ${convActualizado.codigo} fue renovado con éxito.`);
             setModalRenovacion(null);
+            window.location.reload();
           }}
         />
       )}
-
     </div>
   );
 }
