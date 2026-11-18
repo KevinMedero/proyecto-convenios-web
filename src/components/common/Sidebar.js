@@ -2,9 +2,61 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
-export default function Sidebar({ user, alertasCount = 0, onLogout }) {
+export default function Sidebar({ user, onLogout }) {
   const pathname = usePathname();
+  const [alertasCount, setAlertasCount] = useState(0);
+
+  // Trae la cantidad de alertas sin leer del usuario logueado
+  useEffect(() => {
+    console.log('Sidebar: efecto montado');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+
+    const cargarContador = async () => {
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      try {
+        // por_pagina=1 para traer lo mínimo: lo que interesa es el campo no_leidas
+        const response = await fetch(`${apiUrl}/notificaciones?por_pagina=1`, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        setAlertasCount(data.no_leidas ?? 0);
+      } catch {
+        // Sin conexión: se conserva el último valor mostrado
+      }
+    };
+
+    const alActualizar = (e) => {
+      console.log('Sidebar: evento recibido', e.detail);
+      if (e.detail?.reset) {
+        setAlertasCount(0);
+      } else if (e.detail?.restar) {
+        setAlertasCount((c) => Math.max(0, c - e.detail.restar));
+      } else {
+        cargarContador(); // evento sin datos: se pide el valor real al servidor
+      }
+    };
+
+    cargarContador(); // al montar y cada vez que se cambia de pantalla
+    const intervalo = setInterval(cargarContador, 60000); // y cada minuto
+    window.addEventListener('alertas:actualizadas', alActualizar);
+
+    return () => {
+      clearInterval(intervalo);
+      window.removeEventListener('alertas:actualizadas', alActualizar);
+    };
+  }, [pathname]);
 
   // Normalizamos el rol en minúscula y sin tildes para comparar sin errores
   const rolActual = (user?.rol || 'consulta')
@@ -13,12 +65,12 @@ export default function Sidebar({ user, alertasCount = 0, onLogout }) {
     .replace(/[\u0300-\u036f]/g, '');
 
   const puedeVerConvenios = ['revision', 'gestion', 'administracion'].includes(rolActual);
-  const puedeCrearConvenio = ['gestion', 'administracion'].includes(rolActual);
+  const puedeCrearConvenio = rolActual === 'administracion';
 
   // Orden del menú lateral: Inicio -> Convenios -> Nuevo convenio -> Estadísticas -> Alertas
   // Consulta: Inicio, Estadísticas, Alertas
-  // Revisor: Inicio, Convenios, Estadísticas, Alertas
-  // Gestor y Administrador: Inicio, Convenios, Nuevo convenio, Estadísticas, Alertas  
+  // Revisor y Gestor: Inicio, Convenios, Estadísticas, Alertas
+  // Administrador: Inicio, Convenios, Nuevo convenio, Estadísticas, Alertas  
   const menuItems = [
     { label: 'Inicio', href: '/inicio', visible: true },
     { label: 'Convenios', href: '/convenios', visible: puedeVerConvenios },
@@ -51,13 +103,13 @@ export default function Sidebar({ user, alertasCount = 0, onLogout }) {
     <aside className="sidebar-panel d-flex flex-column justify-content-between p-3 text-white">
       <div>
         {/* Encabezado con Logo y Título del Sistema */}
-        <div className="d-flex align-items-center gap-2 px-1 py-2 mb-4">
-          <div className="sidebar-logo-box d-flex align-items-center justify-content-center flex-shrink-0">
-            LOGO
+        <div className="d-flex align-items-center gap-2 mb-4 px-2">
+          <div className="sidebar-logo-box">
+            <img src="/logo.png" alt="Logo UNLPam" />
           </div>
-          <div style={{ lineHeight: '1.2', fontSize: '0.85rem' }} className="fw-bold">
-            Gestión de<br />Convenios
-          </div>
+          <span className="text-white fw-bold lh-sm" style={{ fontSize: "0.85rem" }}>
+            Gestión de Convenios
+          </span>
         </div>
 
         {/* Navegación filtrada según el rol */}
@@ -74,8 +126,12 @@ export default function Sidebar({ user, alertasCount = 0, onLogout }) {
                 >
                   <span>{item.label}</span>
                   {item.badge > 0 && (
-                    <span className="badge rounded-pill bg-danger" style={{ fontSize: '0.7rem' }}>
-                      {item.badge}
+                    <span
+                      className="badge rounded-pill bg-danger"
+                      style={{ fontSize: '0.7rem' }}
+                      aria-label={`${item.badge} alertas sin leer`}
+                    >
+                      {item.badge > 99 ? '99+' : item.badge}
                     </span>
                   )}
                 </Link>

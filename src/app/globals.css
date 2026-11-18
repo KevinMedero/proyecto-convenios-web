@@ -1,10 +1,10 @@
 :root {
-  --unlpam-navy: #19324a;
+  --unlpam-navy: #1F3A5A;
   --unlpam-gold: #f5b400;
   --unlpam-cream: #f6f4ee;
   --unlpam-burgundy: #8b2e2e;
-  --unlpam-blue-btn: #0d5296;
-  --unlpam-blue-btn-hover: #093d73;
+  --unlpam-blue-btn: #0F5A9C;
+  --unlpam-blue-btn-hover: #0a4a7f;
 }
 
 body {
@@ -26,7 +26,6 @@ body {
 .login-logo-box {
   width: 72px;
   height: 72px;
-  background-color: #ffffff;
   border-radius: 12px;
   color: var(--unlpam-blue-btn);
   font-weight: 700;
@@ -66,7 +65,7 @@ body {
 
 .form-control:focus {
   border-color: var(--unlpam-blue-btn);
-  box-shadow: 0 0 0 0.2rem rgba(13, 82, 150, 0.15);
+  box-shadow: 0 0 0 0.2rem rgba(15, 90, 156, 0.15);
 }
 
 
@@ -80,13 +79,24 @@ body {
 }
 
 .sidebar-logo-box {
-  width: 36px;
-  height: 36px;
-  background-color: #ffffff;
-  border-radius: 6px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px; /* Evita que flexbox lo aplaste si el texto es largo */
   color: var(--unlpam-blue-btn);
-  font-weight: 700;
-  font-size: 0.7rem;
+  border-radius: 8px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidebar-logo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .sidebar-link {
@@ -156,4 +166,70 @@ body {
   font-weight: 600;
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
+}
+
+/* --- Alertas --- */
+.badge-tipo {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.badge-tipo-nuevo {
+  background-color: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.badge-tipo-cambio {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.badge-tipo-cancelado {
+  background-color: #fef2f2;
+  color: var(--unlpam-burgundy);
+  border-color: #fecaca;
+}
+
+.badge-no-leida {
+  background-color: var(--unlpam-gold);
+  color: var(--unlpam-navy);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+.alert-row-unread {
+  background-color: #fffbeb;
+}
+
+.btn-unlpam-outline {
+  background-color: transparent;
+  border: 1px solid var(--unlpam-blue-btn);
+  color: var(--unlpam-blue-btn);
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.btn-unlpam-outline:hover,
+.btn-unlpam-outline:focus {
+  background-color: var(--unlpam-blue-btn);
+  color: #ffffff;
+}
+
+/* Contador en el menú lateral (.sidebar-link ya usa space-between) */
+.badge-count {
+  background-color: var(--unlpam-gold);
+  color: var(--unlpam-navy);
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 1.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  text-align: center;
 }

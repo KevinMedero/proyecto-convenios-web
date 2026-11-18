@@ -65,34 +65,79 @@ export default function ConveniosPage() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      };
 
       try {
-        const params = new URLSearchParams();
-        params.append('page', pagina);
-        if (estado) params.append('estado', estado);
-        if (q.trim()) params.append('q', q.trim());
-        if (tipoId) params.append('tipo_instrumento_id', tipoId);
-        if (unidadId) params.append('unidad_id', unidadId);
-        if (fechaDesde) params.append('fecha_desde', fechaDesde);
-        if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+        const baseParams = new URLSearchParams();
+        if (estado) baseParams.append('estado', estado);
+        if (q.trim()) baseParams.append('q', q.trim());
+        if (tipoId) baseParams.append('tipo_instrumento_id', tipoId);
+        if (fechaDesde) baseParams.append('fecha_desde', fechaDesde);
+        if (fechaHasta) baseParams.append('fecha_hasta', fechaHasta);
 
-        const response = await fetch(`${apiUrl}/convenios?${params.toString()}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
+        // CASO A: Sin filtro de unidad -> paginación directa desde la API
+        if (!unidadId) {
+          baseParams.append('page', pagina);
+          const response = await fetch(`${apiUrl}/convenios?${baseParams.toString()}`, { headers });
+          if (!response.ok) throw new Error('No se pudieron cargar los convenios.');
+
+          const result = await response.json();
+          setConvenios(result.data || []);
+          setPaginacion({
+            current_page: result.current_page || 1,
+            last_page: result.last_page || 1,
+            total: result.total || 0,
+            from: result.from || 0,
+            to: result.to || 0,
+          });
+          return;
+        }
+
+        // CASO B: Con filtro de unidad -> traemos en lotes de 50 y filtramos en el cliente
+        const acumulado = [];
+        let pagActual = 1;
+        let ultimaPag = 1;
+
+        do {
+          const p = new URLSearchParams(baseParams);
+          p.append('por_pagina', '50');
+          p.append('page', pagActual);
+
+          const res = await fetch(`${apiUrl}/convenios?${p.toString()}`, { headers });
+          if (!res.ok) throw new Error('No se pudieron cargar los convenios.');
+
+          const json = await res.json();
+          acumulado.push(...(json.data || []));
+          ultimaPag = json.last_page || 1;
+          pagActual += 1;
+        } while (pagActual <= ultimaPag && pagActual <= 50);
+
+        const filtradosPorUnidad = acumulado.filter((c) => {
+          const unidadDirecta = String(c.unidad_responsable_id ?? c.unidad?.id ?? '');
+          const enRepresentantes = (c.representantes || []).some(
+            (r) => String(r.unidad_responsable_id ?? '') === String(unidadId)
+          );
+          return unidadDirecta === String(unidadId) || enRepresentantes;
         });
 
-        if (!response.ok) throw new Error('No se pudieron cargar los convenios.');
+        // Paginamos localmente de a 10 para mantener intacta la tabla y el paginador
+        const porPagina = 10;
+        const total = filtradosPorUnidad.length;
+        const lastPage = Math.max(1, Math.ceil(total / porPagina));
+        const currentPage = Math.min(pagina, lastPage);
+        const inicio = (currentPage - 1) * porPagina;
+        const slice = filtradosPorUnidad.slice(inicio, inicio + porPagina);
 
-        const result = await response.json();
-        setConvenios(result.data || []);
+        setConvenios(slice);
         setPaginacion({
-          current_page: result.current_page || 1,
-          last_page: result.last_page || 1,
-          total: result.total || 0,
-          from: result.from || 0,
-          to: result.to || 0,
+          current_page: currentPage,
+          last_page: lastPage,
+          total,
+          from: total === 0 ? 0 : inicio + 1,
+          to: inicio + slice.length,
         });
       } catch (err) {
         setError(err.message);
@@ -146,7 +191,7 @@ export default function ConveniosPage() {
     document.body.removeChild(link);
   };
 
-  const puedeCrear = ['gestion', 'gestor', 'administracion', 'admin'].includes(rol);
+  const puedeCrear = ['administracion', 'admin'].includes(rol);
 
   return (
     <div>
@@ -205,7 +250,7 @@ export default function ConveniosPage() {
 
       {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
-      <ConveniosTable convenios={convenios} loading={loading} />
+      <ConveniosTable convenios={convenios} unidades={unidades} loading={loading} />
 
       <Pagination paginacion={paginacion} pagina={pagina} setPagina={setPagina} />
     </div>

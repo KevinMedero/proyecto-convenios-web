@@ -6,6 +6,7 @@ import StatusBadge from '@/components/common/StatusBadge';
 
 export default function ConveniosTable({
   convenios = [],
+  unidades = [],
   loading = false,
   mensajeCargando = 'Cargando convenios...',
   mensajeVacio = 'No se encontraron convenios con los filtros seleccionados.',
@@ -35,6 +36,23 @@ export default function ConveniosTable({
     const soloFecha = String(fechaVenc).split('T')[0].split(' ')[0];
     const [anio, mes, dia] = soloFecha.split('-');
     return `Vence ${dia}/${mes}/${anio}`;
+  };
+
+  // Resuelve el nombre de la unidad (directa o a través de sus representantes)
+  const obtenerNombreUnidad = (conv) => {
+    if (conv.unidad?.nombre) return conv.unidad.nombre;
+
+    for (const rep of conv.representantes || []) {
+      if (rep.unidad?.nombre) return rep.unidad.nombre;
+      if (rep.unidad_responsable_id) {
+        const encontrada = unidades.find(
+          (u) => String(u.id) === String(rep.unidad_responsable_id)
+        );
+        if (encontrada) return encontrada.nombre;
+      }
+    }
+
+    return 'Sin asignar';
   };
 
   // Agrupamos convenios hijos bajo su convenio_padre_id si vienen en la misma lista
@@ -91,7 +109,7 @@ export default function ConveniosTable({
             {conv.tipo_instrumento?.nombre || 'Sin especificar'}
           </td>
           <td className="text-secondary">
-            {conv.unidad?.nombre || 'Ingeniería'}
+            {obtenerNombreUnidad(conv)}
           </td>
           <td>
             <StatusBadge estado={conv.estado} />

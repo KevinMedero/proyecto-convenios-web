@@ -66,33 +66,78 @@ export default function InicioRevisor() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      };
 
       try {
-        const params = new URLSearchParams();
-        params.append('page', pagina);
-        params.append('estado', 'revision');
-        if (q.trim()) params.append('q', q.trim());
-        if (tipoId) params.append('tipo_instrumento_id', tipoId);
-        if (fechaDesde) params.append('fecha_desde', fechaDesde);
-        if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+        const baseParams = new URLSearchParams();
+        baseParams.append('estado', 'revision');
+        if (q.trim()) baseParams.append('q', q.trim());
+        if (tipoId) baseParams.append('tipo_instrumento_id', tipoId);
+        if (fechaDesde) baseParams.append('fecha_desde', fechaDesde);
+        if (fechaHasta) baseParams.append('fecha_hasta', fechaHasta);
 
-        const response = await fetch(`${apiUrl}/convenios?${params.toString()}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
+        // CASO A: Sin filtro de unidad -> paginación directa desde la API
+        if (!unidadId) {
+          baseParams.append('page', pagina);
+          const response = await fetch(`${apiUrl}/convenios?${baseParams.toString()}`, { headers });
+          if (!response.ok) throw new Error('No se pudieron cargar los convenios.');
+
+          const result = await response.json();
+          setConvenios(result.data || []);
+          setPaginacion({
+            current_page: result.current_page || 1,
+            last_page: result.last_page || 1,
+            total: result.total || 0,
+            from: result.from || 0,
+            to: result.to || 0,
+          });
+          return;
+        }
+
+        // CASO B: Con filtro de unidad -> traemos en lotes de 50 y filtramos en el cliente
+        const acumulado = [];
+        let pagActual = 1;
+        let ultimaPag = 1;
+
+        do {
+          const p = new URLSearchParams(baseParams);
+          p.append('por_pagina', '50');
+          p.append('page', pagActual);
+
+          const res = await fetch(`${apiUrl}/convenios?${p.toString()}`, { headers });
+          if (!res.ok) throw new Error('No se pudieron cargar los convenios.');
+
+          const json = await res.json();
+          acumulado.push(...(json.data || []));
+          ultimaPag = json.last_page || 1;
+          pagActual += 1;
+        } while (pagActual <= ultimaPag && pagActual <= 50);
+
+        const filtradosPorUnidad = acumulado.filter((c) => {
+          const unidadDirecta = String(c.unidad_responsable_id ?? c.unidad?.id ?? '');
+          const enRepresentantes = (c.representantes || []).some(
+            (r) => String(r.unidad_responsable_id ?? '') === String(unidadId)
+          );
+          return unidadDirecta === String(unidadId) || enRepresentantes;
         });
 
-        if (!response.ok) throw new Error('No se pudieron cargar los convenios.');
+        const porPagina = 10;
+        const total = filtradosPorUnidad.length;
+        const lastPage = Math.max(1, Math.ceil(total / porPagina));
+        const currentPage = Math.min(pagina, lastPage);
+        const inicio = (currentPage - 1) * porPagina;
+        const slice = filtradosPorUnidad.slice(inicio, inicio + porPagina);
 
-        const result = await response.json();
-        setConvenios(result.data || []);
+        setConvenios(slice);
         setPaginacion({
-          current_page: result.current_page || 1,
-          last_page: result.last_page || 1,
-          total: result.total || 0,
-          from: result.from || 0,
-          to: result.to || 0,
+          current_page: currentPage,
+          last_page: lastPage,
+          total,
+          from: total === 0 ? 0 : inicio + 1,
+          to: inicio + slice.length,
         });
       } catch (err) {
         setError(err.message);
@@ -195,41 +240,74 @@ export default function InicioRevisor() {
       {/* Mensaje de error si falla la petición */}
       {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
-      {/* Encabezado de la bandeja y contador total */}
-      <div className="d-flex justify-content-between align-items-center mb-2 mt-2">
-        <h2 className="h6 fw-bold text-dark mb-0">Para revisar</h2>
-        <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-          {paginacion.total} {paginacion.total === 1 ? 'convenio pendiente' : 'convenios pendientes'}
-        </span>
-      </div>
+    
+      {/* SECCIÓN 1: Borradores */}
+          <div className="d-flex justify-content-between align-items-center mb-2 mt-3">
+            <h2 className="h6 fw-bold text-dark mb-0">Convenios en Revision</h2>
+            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+              {convenios.length} {convenios.length === 1 ? 'convenio' : 'convenios'}
+            </span>
+          </div>
 
-      {/* Listado de tarjetas de convenios pendientes */}
-      {loading ? (
-        <div className="text-muted py-4 small">Cargando convenios pendientes de revisión...</div>
-      ) : convenios.length === 0 ? (
-        <div className="filter-card p-4 text-center text-muted small mb-3">
-          No hay convenios pendientes de revisión con los filtros seleccionados.
-        </div>
-      ) : (
-        <div className="d-flex flex-column gap-2 mb-3">
-          {convenios.map((conv) => {
-            const estilo = obtenerEstiloUrgencia(conv);
-            return (
-              <ConvenioActionCard
-                key={conv.id}
-                convenio={conv}
-                bordeColor={estilo.bordeColor}
-                badgeTexto={estilo.texto}
-                badgeBg={estilo.badgeBg}
-                badgeColor={estilo.badgeColor}
-                accionPrimariaTexto="Revisar"
-                accionPrimariaHref={`/convenios/${conv.id}/revisar`}
-                onVerClick={registrarVisto}
-              />
-            );
-          })}
-        </div>
-      )}
+          {convenios.length === 0 ? (
+            <div className="filter-card p-3 text-center text-muted small mb-3">
+              No hay convenios en estado revision pendientes.
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-2 mb-4">
+              {convenios.map((conv) => {
+                return (
+                  <div
+                    key={conv.id}
+                    className="bg-white rounded-3 shadow-sm px-3 py-3 d-flex flex-wrap justify-content-between align-items-center gap-3"
+                    style={{
+                      border: '1px solid #e5e7eb',
+                      borderLeft: `4px solid #d1d5db`,
+                    }}
+                  >
+                    <div>
+                      <div className="text-muted fw-semibold" style={{ fontSize: '0.73rem' }}>
+                        {conv.codigo}
+                      </div>
+                      <div className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>
+                        {conv.titulo}
+                      </div>
+                      <div className="d-flex flex-wrap align-items-center gap-2">
+                        <span
+                          className="badge rounded-pill fw-semibold"
+                          style={{
+                            backgroundColor: '#f3f4f6',
+                            color: '#374151',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '0.72rem',
+                            padding: '0.32em 0.65em',
+                          }}
+                        >
+                          Revision
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2">
+                      <Link
+                        href={`/convenios/${conv.id}`}
+                        onClick={() => registrarVisto(conv)}
+                        className="btn btn-sm bg-white fw-semibold px-3 py-2 text-nowrap"
+                        style={{
+                          color: 'var(--unlpam-blue-btn)',
+                          border: '1.5px solid var(--unlpam-blue-btn)',
+                          borderRadius: '8px',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        Ver convenio
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
       {/* Controles de paginación */}
       <div className="mb-4">
