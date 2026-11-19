@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -16,8 +16,41 @@ const representanteVacio = () => ({
 const extraerLista = (respuesta) =>
   Array.isArray(respuesta) ? respuesta : Array.isArray(respuesta?.data) ? respuesta.data : [];
 
+const subirDocumento = async (apiUrl, token, convenioId, archivo) => {
+  const formData = new FormData();
+  formData.append('convenio_id', String(convenioId));
+  formData.append('archivo', archivo);
+
+  const response = await fetch(`${apiUrl}/documentos`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+    body: formData,
+  });
+
+  const textoRespuesta = await response.text();
+  let resultado = null;
+  if (textoRespuesta) {
+    try {
+      resultado = JSON.parse(textoRespuesta);
+    } catch {
+      throw new Error('El servidor devolvió una respuesta inválida al cargar el PDF.');
+    }
+  }
+
+  if (!response.ok) {
+    const mensajeValidacion = resultado?.errors
+      ? Object.values(resultado.errors).flat().join(' ')
+      : resultado?.message || 'No se pudo cargar el PDF.';
+    throw new Error(mensajeValidacion);
+  }
+};
+
 export default function NuevoConvenioPage() {
   const router = useRouter();
+  const inputDocumentoRef = useRef(null);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
   const [tiposInstrumento, setTiposInstrumento] = useState([]);
@@ -37,10 +70,35 @@ export default function NuevoConvenioPage() {
     asignacionEstimulo: '',
   });
   const [representantes, setRepresentantes] = useState([]);
+  const [archivoPdf, setArchivoPdf] = useState(null);
+  const [errorArchivo, setErrorArchivo] = useState('');
+  const [convenioCreadoId, setConvenioCreadoId] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
+  const [accesoPermitido] = useState(() => {
+    if (typeof window === 'undefined') return null;
+
+    const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+    const rawRol = typeof userData.rol === 'string'
+      ? userData.rol
+      : userData.rol?.nombre || 'consulta';
+    const rol = rawRol
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    return ['administracion', 'administrador', 'admin'].includes(rol);
+  });
 
   useEffect(() => {
+    if (accesoPermitido === false) {
+      router.replace('/inicio');
+    }
+  }, [accesoPermitido, router]);
+
+  useEffect(() => {
+    if (accesoPermitido !== true) return;
+
     let activo = true;
 
     const cargarDatos = async () => {
@@ -90,7 +148,7 @@ export default function NuevoConvenioPage() {
     return () => {
       activo = false;
     };
-  }, [apiUrl]);
+  }, [apiUrl, accesoPermitido]);
 
   const tipoSeleccionado = tiposInstrumento.find(
     (tipo) => String(tipo.id) === String(form.tipoId)
@@ -126,10 +184,48 @@ export default function NuevoConvenioPage() {
     setRepresentantes((actuales) => actuales.filter((_, i) => i !== indice));
   };
 
+  const seleccionarDocumento = (e) => {
+    const archivo = e.target.files?.[0];
+    e.target.value = '';
+    if (!archivo) return;
+
+    if (!archivo.name.toLowerCase().endsWith('.pdf')) {
+      setArchivoPdf(null);
+      setErrorArchivo('El archivo debe ser un PDF.');
+      return;
+    }
+    if (archivo.size > 20 * 1024 * 1024) {
+      setArchivoPdf(null);
+      setErrorArchivo('El PDF no puede superar los 20 MB.');
+      return;
+    }
+
+    setErrorArchivo('');
+    setArchivoPdf(archivo);
+  };
+
+  const reintentarCargaDocumento = async () => {
+    if (!convenioCreadoId || !archivoPdf) return;
+
+    setError('');
+    setGuardando(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('La sesión no está disponible. Inicia sesión nuevamente.');
+      await subirDocumento(apiUrl, token, convenioCreadoId, archivoPdf);
+      router.push('/inicio');
+    } catch (err) {
+      setError(`El convenio se guardó, pero no se pudo cargar el PDF: ${err.message}`);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setGuardando(true);
+    let idConvenioCreado = null;
 
     const token = localStorage.getItem('auth_token');
     if (!token) {
@@ -210,12 +306,27 @@ export default function NuevoConvenioPage() {
         throw new Error(mensajeValidacion);
       }
 
+      idConvenioCreado = resultado?.id;
+      if (archivoPdf) {
+        if (!idConvenioCreado) {
+          throw new Error('El convenio se guardó, pero la API no devolvió su identificador para asociar el PDF.');
+        }
+        setConvenioCreadoId(idConvenioCreado);
+        await subirDocumento(apiUrl, token, idConvenioCreado, archivoPdf);
+      }
+
       router.push('/inicio');
     } catch (err) {
-      setError(err.message);
+      setError(
+        idConvenioCreado && archivoPdf
+          ? `El convenio se guardó, pero no se pudo cargar el PDF: ${err.message}`
+          : err.message
+      );
       setGuardando(false);
     }
   };
+
+  if (accesoPermitido !== true) return null;
 
   return (
     <div className="mx-auto" style={{ maxWidth: '1000px' }}>
@@ -365,6 +476,63 @@ export default function NuevoConvenioPage() {
           </div>
         </section>
 
+        <section className="filter-card p-3 p-md-4 mb-3 shadow-sm">
+          <div className="d-flex align-items-center gap-2 mb-3">
+            <div>
+              <h2 className="h6 fw-bold text-dark mb-0">Documento PDF</h2>
+              <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                Opcional. Se guardará junto al convenio (máximo 20 MB).
+              </div>
+            </div>
+          </div>
+          <input
+            ref={inputDocumentoRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            className="d-none"
+            onChange={seleccionarDocumento}
+            disabled={guardando || !!convenioCreadoId}
+          />
+          {archivoPdf ? (
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <span className="small text-break">{archivoPdf.name}</span>
+              {!convenioCreadoId && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link text-danger text-decoration-none"
+                  onClick={() => {
+                    setArchivoPdf(null);
+                    setErrorArchivo('');
+                  }}
+                  disabled={guardando}
+                >
+                  Quitar
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary fw-semibold"
+              onClick={() => inputDocumentoRef.current?.click()}
+              disabled={guardando || !!convenioCreadoId}
+            >
+              + Agregar PDF
+            </button>
+          )}
+          {errorArchivo && <div className="form-text text-danger">{errorArchivo}</div>}
+          {convenioCreadoId && archivoPdf && (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary fw-semibold mt-2"
+              onClick={reintentarCargaDocumento}
+              disabled={guardando}
+            >
+              Reintentar carga del PDF
+            </button>
+          )}
+        </section>
+
         {esPasantia && (
           <section className="filter-card p-3 p-md-4 mb-3 shadow-sm">
             <div className="d-flex align-items-center gap-2 mb-3">
@@ -506,9 +674,9 @@ export default function NuevoConvenioPage() {
             type="submit"
             className="btn text-white fw-semibold px-4"
             style={{ backgroundColor: 'var(--unlpam-blue-btn)' }}
-            disabled={guardando || catalogosLoading || !!catalogosError}
+            disabled={guardando || catalogosLoading || !!catalogosError || !!convenioCreadoId}
           >
-            {guardando ? 'Guardando...' : 'Guardar borrador'}
+            {guardando ? 'Guardando...' : convenioCreadoId ? 'Convenio guardado' : 'Guardar borrador'}
           </button>
         </div>
       </form>
