@@ -29,6 +29,7 @@ export default function NuevoConvenioPage() {
     titulo: '',
     tipoId: '',
     unidadId: '',
+    unidadSecundariaId: '',
     fechaVencimiento: '',
     fechaInicioPasantia: '',
     fechaFinPasantia: '',
@@ -100,6 +101,15 @@ export default function NuevoConvenioPage() {
     setForm((actual) => ({ ...actual, [campo]: valor }));
   };
 
+  const actualizarUnidadPrincipal = (valor) => {
+    setForm((actual) => ({
+      ...actual,
+      unidadId: valor,
+      unidadSecundariaId:
+        String(actual.unidadSecundariaId) === String(valor) ? '' : actual.unidadSecundariaId,
+    }));
+  };
+
   const actualizarRepresentante = (indice, campo, valor) => {
     setRepresentantes((actuales) =>
       actuales.map((representante, i) =>
@@ -128,6 +138,16 @@ export default function NuevoConvenioPage() {
       return;
     }
 
+    if (
+      !form.unidadId ||
+      !form.unidadSecundariaId ||
+      String(form.unidadId) === String(form.unidadSecundariaId)
+    ) {
+      setError('Selecciona dos unidades responsables distintas para el convenio.');
+      setGuardando(false);
+      return;
+    }
+
     const personas = representantes
       .filter((representante) =>
         Object.values(representante).some((valor) => valor.trim() !== '')
@@ -146,6 +166,7 @@ export default function NuevoConvenioPage() {
       titulo: form.titulo.trim(),
       tipo_instrumento_id: Number(form.tipoId),
       unidad_id: Number(form.unidadId),
+      unidad_responsable_secundaria_id: Number(form.unidadSecundariaId),
       estado: 'borrador',
       fecha_vencimiento:
         form.fechaVencimiento || (esPasantia ? form.fechaFinPasantia : '') || null,
@@ -279,7 +300,7 @@ export default function NuevoConvenioPage() {
                 id="unidad"
                 className="form-select"
                 value={form.unidadId}
-                onChange={(e) => actualizarCampo('unidadId', e.target.value)}
+                onChange={(e) => actualizarUnidadPrincipal(e.target.value)}
                 required
                 disabled={catalogosLoading || unidades.length === 0}
               >
@@ -292,6 +313,38 @@ export default function NuevoConvenioPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="col-12 col-md-6 offset-md-6">
+              <label htmlFor="unidadSecundaria" className="form-label fw-semibold small">
+                Segunda unidad responsable <span className="text-danger">*</span>
+              </label>
+              <select
+                id="unidadSecundaria"
+                className="form-select"
+                value={form.unidadSecundariaId}
+                onChange={(e) => actualizarCampo('unidadSecundariaId', e.target.value)}
+                required
+                disabled={catalogosLoading || unidades.length < 2}
+              >
+                <option value="">
+                  {catalogosLoading
+                    ? 'Cargando unidades...'
+                    : 'Selecciona una segunda unidad'}
+                </option>
+                {unidades
+                  .filter((unidad) => String(unidad.id) !== String(form.unidadId))
+                  .map((unidad) => (
+                    <option key={unidad.id} value={unidad.id}>
+                      {unidad.nombre}
+                    </option>
+                  ))}
+              </select>
+              {!catalogosLoading && unidades.length < 2 && (
+                <div className="form-text text-danger">
+                  Se necesitan al menos dos unidades responsables registradas.
+                </div>
+              )}
             </div>
 
             {!esPasantia && (

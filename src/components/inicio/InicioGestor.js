@@ -9,6 +9,7 @@ import ModalRenovacion from '@/components/common/ModalRenovacion';
 export default function InicioGestor({ modoAdministrador = false }) {
   const [conveniosFiltrados, setConveniosFiltrados] = useState([]);
   const [conveniosBorrador, setConveniosBorrador] = useState([]);
+  const [conveniosAprobados, setConveniosAprobados] = useState([]);
   const [conveniosFirmados, setConveniosFirmados] = useState([]);
   const [conveniosProximosVencer, setConveniosProximosVencer] = useState([]);
   const [ultimosVistos, setUltimosVistos] = useState([]);
@@ -38,6 +39,7 @@ export default function InicioGestor({ modoAdministrador = false }) {
   const [observacionAsignacion, setObservacionAsignacion] = useState('');
   const [enviandoAsignacion, setEnviandoAsignacion] = useState(false);
   const [errorModal, setErrorModal] = useState('');
+  const [firmandoConvenioId, setFirmandoConvenioId] = useState(null);
 
   // Estado para el Modal de Renovación rápida
   const [modalRenovacion, setModalRenovacion] = useState(null);
@@ -126,6 +128,7 @@ export default function InicioGestor({ modoAdministrador = false }) {
 
         const sinRevision = listaProcesada.filter((c) => (c.estado || '').toLowerCase() !== 'revision');
         const borradores = sinRevision.filter((c) => (c.estado || '').toLowerCase() === 'borrador');
+        const aprobados = sinRevision.filter((c) => (c.estado || '').toLowerCase() === 'aprobado');
         const firmados = sinRevision.filter((c) => (c.estado || '').toLowerCase() === 'firmado');
         const proximosVencer = sinRevision.filter((c) => {
           const fechaVenc = c.fecha_vencimiento || c.detalle_pasantia?.fecha_fin_pasantia;
@@ -136,6 +139,7 @@ export default function InicioGestor({ modoAdministrador = false }) {
 
         setConveniosFiltrados(listaProcesada);
         setConveniosBorrador(borradores);
+        setConveniosAprobados(aprobados);
         setConveniosFirmados(firmados);
         setConveniosProximosVencer(proximosVencer);
       } catch (err) {
@@ -198,8 +202,8 @@ export default function InicioGestor({ modoAdministrador = false }) {
         },
         body: JSON.stringify({
           estado: 'revision',
-          fundamento: fundamentoFinal,
           revisor_id: Number(revisorSeleccionado),
+          fundamento: fundamentoFinal,
         }),
       });
 
@@ -221,6 +225,54 @@ export default function InicioGestor({ modoAdministrador = false }) {
       setErrorModal(err.message);
     } finally {
       setEnviandoAsignacion(false);
+    }
+  };
+
+  const handleFirmarConvenio = async (conv) => {
+    if (firmandoConvenioId === conv.id) return;
+
+    setFirmandoConvenioId(conv.id);
+    setError('');
+    setExitoMsg('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${apiUrl}/convenios/${conv.id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          estado: 'firmado',
+          fundamento: 'Firmado por Administración',
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        const message = data?.errors
+          ? Object.values(data.errors).flat().join(' ')
+          : data?.message || 'No se pudo firmar el convenio.';
+        throw new Error(message);
+      }
+
+      setConveniosAprobados((actuales) => actuales.filter((item) => item.id !== conv.id));
+      setConveniosFirmados((actuales) => [data, ...actuales.filter((item) => item.id !== conv.id)]);
+      setConveniosFiltrados((actuales) =>
+        estado === 'aprobado'
+          ? actuales.filter((item) => item.id !== conv.id)
+          : actuales.map((item) => (item.id === conv.id ? { ...item, ...data } : item))
+      );
+      setConveniosProximosVencer((actuales) =>
+        actuales.map((item) => (item.id === conv.id ? { ...item, ...data } : item))
+      );
+      setExitoMsg(`El convenio ${conv.codigo} fue firmado y ya figura como vigente.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFirmandoConvenioId(null);
     }
   };
 
@@ -258,7 +310,10 @@ export default function InicioGestor({ modoAdministrador = false }) {
 
   const totalConveniosVisibles = hayFiltrosActivos
     ? conveniosFiltrados.length
-    : conveniosBorrador.length + conveniosFirmados.length + conveniosProximosVencer.length;
+    : conveniosBorrador.length +
+      (modoAdministrador ? conveniosAprobados.length : 0) +
+      conveniosFirmados.length +
+      conveniosProximosVencer.length;
 
   return (
     <div>
@@ -271,19 +326,6 @@ export default function InicioGestor({ modoAdministrador = false }) {
             Total en vista: <strong>{totalConveniosVisibles}</strong> convenios
           </span>
         </div>
-        {modoAdministrador && (
-          <Link
-            href="/convenios/nuevo"
-            className="btn btn-sm text-white fw-semibold px-3 py-2"
-            style={{
-              backgroundColor: 'var(--unlpam-blue-btn)',
-              borderRadius: '6px',
-              fontSize: '0.82rem',
-            }}
-          >
-            + Nuevo convenio
-          </Link>
-        )}
       </div>
 
       <SearchFilters
@@ -450,6 +492,22 @@ export default function InicioGestor({ modoAdministrador = false }) {
                         )
                       )}
 
+                      {modoAdministrador && estadoLower === 'aprobado' && (
+                        <button
+                          type="button"
+                          onClick={() => handleFirmarConvenio(conv)}
+                          disabled={firmandoConvenioId === conv.id}
+                          className="btn btn-sm text-white fw-semibold px-3 py-2 text-nowrap"
+                          style={{
+                            backgroundColor: 'var(--unlpam-blue-btn)',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                          }}
+                        >
+                          {firmandoConvenioId === conv.id ? 'Firmando...' : 'Firmar'}
+                        </button>
+                      )}
+
                       {cfgVenc.badgeTexto && (
                         <button
                           type="button"
@@ -588,6 +646,36 @@ export default function InicioGestor({ modoAdministrador = false }) {
                 );
               })}
             </div>
+          )}
+
+          {modoAdministrador && (
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-2 mt-4">
+                <h2 className="h6 fw-bold text-dark mb-0">Convenios aprobados pendientes de firma</h2>
+                <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                  {conveniosAprobados.length} {conveniosAprobados.length === 1 ? 'convenio' : 'convenios'}
+                </span>
+              </div>
+
+              {conveniosAprobados.length === 0 ? (
+                <div className="filter-card p-3 text-center text-muted small mb-3">
+                  No hay convenios aprobados pendientes de firma.
+                </div>
+              ) : (
+                <div className="d-flex flex-column gap-2 mb-4">
+                  {conveniosAprobados.map((conv) => (
+                    <ConvenioActionCard
+                      key={`aprobado-${conv.id}`}
+                      convenio={conv}
+                      bordeColor="#2563eb"
+                      accionPrimariaTexto={firmandoConvenioId === conv.id ? 'Firmando...' : 'Firmar'}
+                      accionPrimariaDisabled={firmandoConvenioId === conv.id}
+                      onAccionClick={handleFirmarConvenio}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {/* SECCIÓN 2: Próximos a vencer */}

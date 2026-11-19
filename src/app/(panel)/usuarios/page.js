@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 const ROLES = [
@@ -184,9 +185,22 @@ export default function UsuariosPage() {
             Administración de las cuentas y sus roles.
           </p>
         </div>
-        <span className="text-muted small">
-          {usuarios.length} {usuarios.length === 1 ? 'usuario' : 'usuarios'}
-        </span>
+        <div className="d-flex align-items-center gap-3">
+          <span className="text-muted small">
+            {usuarios.length} {usuarios.length === 1 ? 'usuario' : 'usuarios'}
+          </span>
+          <Link
+            href="/usuarios/nuevo"
+            className="btn btn-sm text-white fw-semibold px-3 py-2"
+            style={{
+              backgroundColor: 'var(--unlpam-blue-btn)',
+              borderRadius: '6px',
+              fontSize: '0.82rem',
+            }}
+          >
+            Nuevo Usuario
+          </Link>
+        </div>
       </div>
 
       {error && <div className="alert alert-danger py-2 small">{error}</div>}

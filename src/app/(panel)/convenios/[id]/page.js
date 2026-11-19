@@ -26,6 +26,8 @@ export default function FichaConvenioPage() {
     const [fundamentoRevision, setFundamentoRevision] = useState('');
     const [enviandoRevision, setEnviandoRevision] = useState(false);
     const [errorRevision, setErrorRevision] = useState('');
+    const [enviandoFirma, setEnviandoFirma] = useState(false);
+    const [errorFirma, setErrorFirma] = useState('');
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
@@ -211,6 +213,43 @@ export default function FichaConvenioPage() {
         }
     };
 
+    const handleFirmarConvenio = async () => {
+        if (!convenio) return;
+
+        setEnviandoFirma(true);
+        setErrorFirma('');
+        const token = localStorage.getItem('auth_token');
+
+        try {
+            const response = await fetch(`${apiUrl}/convenios/${convenio.id}`, {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    estado: 'firmado',
+                    fundamento: 'Firmado por Administración',
+                }),
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                const message = data?.errors
+                    ? Object.values(data.errors).flat().join(' ')
+                    : data?.message || 'No se pudo firmar el convenio.';
+                throw new Error(message);
+            }
+
+            await recargarConvenio();
+        } catch (err) {
+            setErrorFirma(err.message);
+        } finally {
+            setEnviandoFirma(false);
+        }
+    };
+
     if (loading) {
         return <div className="text-muted py-4">Cargando ficha del convenio...</div>;
     }
@@ -228,6 +267,11 @@ export default function FichaConvenioPage() {
 
     const docPrincipal = convenio.documentos?.[0];
     const fechaVencimiento = convenio.fecha_vencimiento || convenio.detalle_pasantia?.fecha_fin_pasantia;
+    const unidadPrincipalId = convenio.unidad_responsable_id || convenio.unidad?.id;
+    const tieneDosUnidadesResponsables =
+        unidadPrincipalId &&
+        convenio.unidad_responsable_secundaria_id &&
+        String(unidadPrincipalId) !== String(convenio.unidad_responsable_secundaria_id);
 
     const handleDescargarDocumento = async (doc, abrirEnPestana = false) => {
         const token = localStorage.getItem('auth_token');
@@ -295,7 +339,7 @@ export default function FichaConvenioPage() {
                         Volver
                     </button>
 
-                    {['revision', 'administracion'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'revision' && (
+                    {rolUsuario === 'revision' && (convenio.estado || '').toLowerCase() === 'revision' && (
                         <>
                             <button
                                 type="button"
@@ -326,45 +370,12 @@ export default function FichaConvenioPage() {
                             </button>
                         </>
                     )}
-                    {/* Botón de Prescindir exclusivo para Gestión/Administración y solo si el convenio está firmado */}
-                    {['gestion', 'gestor', 'administracion', 'admin'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'firmado' && (                        <button
-                            type="button"
-                            onClick={() => {
-                                setFundamentoRescision('');
-                                setErrorRescision('');
-                                setModalRescision(true);
-                            }}
-                            className="btn btn-sm text-white fw-semibold px-3 py-2"
-                            style={{
-                                backgroundColor: '#b91c1c',
-                                border: '1.5px solid #991b1b',
-                                borderRadius: '8px',
-                                fontSize: '0.82rem',
-                            }}
-                        >
-                            Prescindir convenio
-                        </button>
-                    )}
-
-                    {['revision', 'administracion'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'revision' && (
-                        <>
+                    {['administracion', 'administrador', 'admin'].includes(rolUsuario) &&
+                        (convenio.estado || '').toLowerCase() === 'aprobado' && (
                             <button
                                 type="button"
-                                onClick={() => abrirModalRevision('borrador')}
-                                className="btn btn-sm bg-white fw-semibold px-3 py-2"
-                                style={{
-                                    color: '#b91c1c',
-                                    border: '1.5px solid #b91c1c',
-                                    borderRadius: '8px',
-                                    fontSize: '0.82rem',
-                                }}
-                            >
-                                Devolver a borrador
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => abrirModalRevision('aprobado')}
+                                onClick={handleFirmarConvenio}
+                                disabled={enviandoFirma}
                                 className="btn btn-sm text-white fw-semibold px-3 py-2"
                                 style={{
                                     backgroundColor: 'var(--unlpam-blue-btn)',
@@ -373,10 +384,9 @@ export default function FichaConvenioPage() {
                                     fontSize: '0.82rem',
                                 }}
                             >
-                                Aprobar
+                                {enviandoFirma ? 'Firmando...' : 'Firmar'}
                             </button>
-                        </>
-                    )}
+                        )}
                     {/* Botón de Prescindir exclusivo para Gestión/Administración y solo si el convenio está firmado */}
                     {['gestion', 'gestor', 'administracion', 'admin'].includes(rolUsuario) && (convenio.estado || '').toLowerCase() === 'firmado' && (                        <button
                             type="button"
@@ -416,6 +426,8 @@ export default function FichaConvenioPage() {
                 </div>
             </div>
 
+            {errorFirma && <div className="alert alert-danger py-2 small" role="alert">{errorFirma}</div>}
+
             {/* Grilla de 2 columnas */}
             <div className="row g-3">
                 {/* COLUMNA IZQUIERDA */}
@@ -434,7 +446,16 @@ export default function FichaConvenioPage() {
 
                             <div className="col-6">
                                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>Unidad responsable</div>
-                                <div className="fw-semibold text-dark">Facultad de Ingeniería</div>
+                                <div className="fw-semibold text-dark">
+                                    {convenio.unidad?.nombre || 'Sin especificar'}
+                                </div>
+                            </div>
+
+                            <div className="col-6">
+                                <div className="text-muted" style={{ fontSize: '0.75rem' }}>Segunda unidad responsable</div>
+                                <div className="fw-semibold text-dark">
+                                    {convenio.unidad_responsable_secundaria?.nombre || 'Sin especificar'}
+                                </div>
                             </div>
 
                             <div className="col-6">
@@ -764,9 +785,9 @@ export default function FichaConvenioPage() {
                                         <div className="fw-bold text-dark">{convenio.titulo}</div>
                                     </div>
 
-                                    {accionRevision === 'aprobado' && (convenio.representantes?.length || 0) < 2 && (
+                                    {accionRevision === 'aprobado' && !tieneDosUnidadesResponsables && (
                                         <div className="alert alert-warning py-2 small">
-                                            Este convenio tiene menos de dos partes cargadas, así que no se podrá aprobar.
+                                            Para aprobar, el convenio debe tener dos unidades responsables distintas. Pedile a Gestión que complete la segunda unidad.
                                         </div>
                                     )}
 
