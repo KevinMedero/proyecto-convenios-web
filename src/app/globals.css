@@ -1,9 +1,9 @@
 :root {
-  --unlpam-navy: #1f3a5a;
+  --unlpam-navy: #1F3A5A;
   --unlpam-gold: #f5b400;
   --unlpam-cream: #f6f4ee;
   --unlpam-burgundy: #8b2e2e;
-  --unlpam-blue-btn: #0f5a9c;
+  --unlpam-blue-btn: #0F5A9C;
   --unlpam-blue-btn-hover: #0a4a7f;
 }
 
@@ -79,12 +79,24 @@ body {
 }
 
 .sidebar-logo-box {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px; /* Evita que flexbox lo aplaste si el texto es largo */
   color: var(--unlpam-blue-btn);
-  font-weight: 700;
-  font-size: 0.7rem;
+  border-radius: 8px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidebar-logo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .sidebar-link {

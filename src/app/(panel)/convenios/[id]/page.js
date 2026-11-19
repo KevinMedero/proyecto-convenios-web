@@ -267,11 +267,13 @@ export default function FichaConvenioPage() {
 
     const docPrincipal = convenio.documentos?.[0];
     const fechaVencimiento = convenio.fecha_vencimiento || convenio.detalle_pasantia?.fecha_fin_pasantia;
-    const unidadPrincipalId = convenio.unidad_responsable_id || convenio.unidad?.id;
-    const tieneDosUnidadesResponsables =
-        unidadPrincipalId &&
-        convenio.unidad_responsable_secundaria_id &&
-        String(unidadPrincipalId) !== String(convenio.unidad_responsable_secundaria_id);
+    const unidadesRepresentantes = new Set(
+        (convenio.representantes || [])
+            .map((rep) => rep.unidad_responsable_id || rep.unidad?.id || rep.unidad_responsable?.id)
+            .filter((unidadId) => unidadId !== undefined && unidadId !== null && unidadId !== '')
+            .map(String)
+    );
+    const tieneDosUnidadesResponsables = unidadesRepresentantes.size >= 2;
 
     const handleDescargarDocumento = async (doc, abrirEnPestana = false) => {
         const token = localStorage.getItem('auth_token');
@@ -311,7 +313,7 @@ export default function FichaConvenioPage() {
         <div>
             {/* Breadcrumb superior */}
             <div className="mb-1" style={{ fontSize: '0.78rem', color: '#6b7280' }}>
-                <Link href="/inicio" className="text-decoration-none text-muted">
+                <Link href="/convenios" className="text-decoration-none text-muted">
                     Convenios
                 </Link>{' '}
                 <span>›</span> <span>{convenio.codigo}</span>
@@ -445,20 +447,6 @@ export default function FichaConvenioPage() {
                             </div>
 
                             <div className="col-6">
-                                <div className="text-muted" style={{ fontSize: '0.75rem' }}>Unidad responsable</div>
-                                <div className="fw-semibold text-dark">
-                                    {convenio.unidad?.nombre || 'Sin especificar'}
-                                </div>
-                            </div>
-
-                            <div className="col-6">
-                                <div className="text-muted" style={{ fontSize: '0.75rem' }}>Segunda unidad responsable</div>
-                                <div className="fw-semibold text-dark">
-                                    {convenio.unidad_responsable_secundaria?.nombre || 'Sin especificar'}
-                                </div>
-                            </div>
-
-                            <div className="col-6">
                                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>Fecha de creación / firma</div>
                                 <div className="fw-semibold text-dark">{formatearFecha(convenio.fecha_creacion)}</div>
                             </div>
@@ -519,13 +507,28 @@ export default function FichaConvenioPage() {
                                 {convenio.representantes.map((rep, idx) => (
                                     <div
                                         key={rep.id || idx}
-                                        className={`py-2 ${idx < convenio.representantes.length - 1 ? 'border-bottom' : ''}`}
+                                        className={`d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 ${idx < convenio.representantes.length - 1 ? 'border-bottom' : ''}`}
                                     >
-                                        <div className="fw-semibold text-dark" style={{ fontSize: '0.86rem' }}>
-                                            {rep.nombre} {rep.apellido || ''}
+                                        <div>
+                                            <div className="fw-semibold text-dark" style={{ fontSize: '0.86rem' }}>
+                                                {rep.nombre} {rep.apellido || ''}
+                                            </div>
+                                            <div className="text-muted" style={{ fontSize: '0.78rem' }}>
+                                                {[rep.cargo, rep.email, rep.cuil && `CUIL: ${rep.cuil}`]
+                                                    .filter(Boolean)
+                                                    .join(' · ') || 'Parte interviniente'}
+                                            </div>
                                         </div>
-                                        <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                                            {rep.email || rep.cuil ? `Email: ${rep.email || 'N/D'}` : 'Parte interviniente'}
+                                        <div className="text-end" style={{ fontSize: '0.78rem' }}>
+                                            <div className="text-muted">Unidad responsable</div>
+                                            <div className="fw-semibold text-dark">
+                                                {rep.unidad?.nombre ||
+                                                    rep.unidad_responsable?.nombre ||
+                                                    rep.unidad_nombre ||
+                                                    (rep.unidad_responsable_id
+                                                        ? `Unidad #${rep.unidad_responsable_id}`
+                                                        : 'Unidad no especificada')}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -787,7 +790,7 @@ export default function FichaConvenioPage() {
 
                                     {accionRevision === 'aprobado' && !tieneDosUnidadesResponsables && (
                                         <div className="alert alert-warning py-2 small">
-                                            Para aprobar, el convenio debe tener dos unidades responsables distintas. Pedile a Gestión que complete la segunda unidad.
+                                            Para aprobar, el convenio debe tener representantes de al menos dos unidades responsables distintas.
                                         </div>
                                     )}
 

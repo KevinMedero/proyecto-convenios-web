@@ -11,7 +11,6 @@ export default function Sidebar({ user, onLogout }) {
 
   // Trae la cantidad de alertas sin leer del usuario logueado
   useEffect(() => {
-    console.log('Sidebar: efecto montado');
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
     const cargarContador = async () => {
@@ -38,7 +37,6 @@ export default function Sidebar({ user, onLogout }) {
     };
 
     const alActualizar = (e) => {
-      console.log('Sidebar: evento recibido', e.detail);
       if (e.detail?.reset) {
         setAlertasCount(0);
       } else if (e.detail?.restar) {
@@ -69,16 +67,16 @@ export default function Sidebar({ user, onLogout }) {
   const puedeVerConvenios = ['revision', 'gestion'].includes(rolActual) || esAdministrador;
   const puedeCrearConvenio = esAdministrador;
 
-  // Orden del menú lateral: Inicio -> Convenios -> Usuarios -> Nuevo convenio -> Estadísticas -> Alertas
+  // Orden del menú lateral: Inicio -> Convenios -> Nuevo convenio -> Usuarios -> Estadísticas -> Alertas
   // Consulta: Inicio, Estadísticas, Alertas
   // Revisor: Inicio, Convenios, Estadísticas, Alertas
   // Gestor: Inicio, Convenios, Estadísticas, Alertas
-  // Administración: Usuarios debajo de Convenios
+  // Administración: Inicio, Convenios, Nuevo convenio, Usuarios, Estadísticas, Alertas
   const menuItems = [
     { label: 'Inicio', href: '/inicio', visible: true },
     { label: 'Convenios', href: '/convenios', visible: puedeVerConvenios },
-    { label: 'Usuarios', href: '/usuarios', visible: esAdministrador },
     { label: 'Nuevo convenio', href: '/convenios/nuevo', visible: puedeCrearConvenio },
+    { label: 'Usuarios', href: '/usuarios', visible: esAdministrador },
     { label: 'Estadísticas', href: '/estadisticas', visible: true },
     { label: 'Alertas', href: '/alertas', badge: alertasCount, visible: true },
   ];
