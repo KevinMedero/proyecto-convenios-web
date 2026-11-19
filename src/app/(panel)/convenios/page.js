@@ -191,25 +191,10 @@ export default function ConveniosPage() {
     document.body.removeChild(link);
   };
 
-  const puedeCrear = ['administracion', 'admin'].includes(rol);
-
   return (
     <div>
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h1 className="page-title mb-0">Convenios</h1>
-        {puedeCrear && (
-          <Link
-            href="/convenios/nuevo"
-            className="btn btn-sm text-white fw-semibold px-3 py-2"
-            style={{
-              backgroundColor: 'var(--unlpam-blue-btn)',
-              borderRadius: '6px',
-              fontSize: '0.82rem',
-            }}
-          >
-            + Nuevo convenio
-          </Link>
-        )}
       </div>
 
       {/* Pasamos rol="admin" para que el select de Estado esté habilitado con todos los estados */}

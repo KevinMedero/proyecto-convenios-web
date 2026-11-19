@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 
 export default function Sidebar({ user, onLogout }) {
   const pathname = usePathname();
@@ -65,16 +64,17 @@ export default function Sidebar({ user, onLogout }) {
     .replace(/[\u0300-\u036f]/g, '');
 
   const puedeVerConvenios = ['revision', 'gestion', 'administracion'].includes(rolActual);
-  const puedeCrearConvenio = rolActual === 'administracion';
+  const esAdministrador = rolActual === 'administracion';
 
   // Orden del menú lateral: Inicio -> Convenios -> Nuevo convenio -> Estadísticas -> Alertas
   // Consulta: Inicio, Estadísticas, Alertas
   // Revisor y Gestor: Inicio, Convenios, Estadísticas, Alertas
-  // Administrador: Inicio, Convenios, Nuevo convenio, Estadísticas, Alertas  
+  // Administrador: Inicio, Convenios, Nuevo convenio, Usuario, Estadísticas, Alertas  
   const menuItems = [
     { label: 'Inicio', href: '/inicio', visible: true },
     { label: 'Convenios', href: '/convenios', visible: puedeVerConvenios },
-    { label: 'Nuevo convenio', href: '/convenios/nuevo', visible: puedeCrearConvenio },
+    { label: 'Nuevo convenio', href: '/convenios/nuevo', visible: esAdministrador },
+    { label: 'Usuarios', href: '/usuarios', visible: esAdministrador },
     { label: 'Estadísticas', href: '/estadisticas', visible: true },
     { label: 'Alertas', href: '/alertas', badge: alertasCount, visible: true },
   ];

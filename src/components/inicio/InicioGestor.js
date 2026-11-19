@@ -198,6 +198,7 @@ export default function InicioGestor({ modoAdministrador = false }) {
         },
         body: JSON.stringify({
           estado: 'revision',
+          revisor_id: Number(revisorSeleccionado),
           fundamento: fundamentoFinal,
         }),
       });
@@ -271,20 +272,6 @@ export default function InicioGestor({ modoAdministrador = false }) {
             Total en vista: <strong>{totalConveniosVisibles}</strong> convenios
           </span>
         </div>
-
-        {modoAdministrador && (
-          <Link
-            href="/convenios/nuevo"
-            className="btn btn-sm text-white fw-semibold px-3 py-2"
-            style={{
-              backgroundColor: 'var(--unlpam-blue-btn)',
-              borderRadius: '6px',
-              fontSize: '0.82rem',
-            }}
-          >
-            + Nuevo convenio
-          </Link>
-        )}
       </div>
 
       <SearchFilters
